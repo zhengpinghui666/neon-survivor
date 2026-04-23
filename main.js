@@ -761,11 +761,10 @@ function update(dt) {
         // 组队模式非房主: 不跑AI，位置由房主同步
         if (!isTeamMode || isHost) e.update(dt, player.x, player.y, terrains);
         
-        // 清理死亡敌人
-        if (e.hp <= 0) {
+        // 清理死亡敌人 (组队非房主: 不本地处理死亡, 由房主同步控制)
+        if (e.hp <= 0 && (!isTeamMode || isHost)) {
             enemies.splice(i, 1);
             createParticles(e.x, e.y, e.color, 18);
-            // VFX: 死亡光环 + 火花
             deathRings.push(new DeathRing(e.x, e.y, e.color));
             for (let s = 0; s < 8; s++) sparkParticles.push(new SparkParticle(e.x, e.y, e.color));
             screenFlash.trigger(e.color, 0.06);
@@ -790,7 +789,7 @@ function update(dt) {
         let el = eliteEnemies[i];
         if (!isTeamMode || isHost) el.update(dt, player.x, player.y, terrains);
 
-        if (el.hp <= 0) {
+        if (el.hp <= 0 && (!isTeamMode || isHost)) {
             eliteEnemies.splice(i, 1);
             createParticles(el.x, el.y, el.color, 30);
             deathRings.push(new DeathRing(el.x, el.y, el.color));
@@ -840,7 +839,7 @@ function update(dt) {
         let b = bosses[i];
         if (!isTeamMode || isHost) b.update(dt, player.x, player.y);
         
-        if (b.hp <= 0) {
+        if (b.hp <= 0 && (!isTeamMode || isHost)) {
             bosses.splice(i, 1);
             createParticles(b.x, b.y, b.color, 60);
             applyShake(12, 0.5);
@@ -1985,8 +1984,8 @@ setInterval(() => {
 setInterval(() => {
     if (!teamWs || teamWs.readyState !== 1 || !isHost || !isTeamMode || gameState !== 'PLAYING') return;
 
-    // 压缩格式: [id, x, y, hp, maxHp, type, color]
-    const eArr = enemies.map(e => [e.id, Math.round(e.x), Math.round(e.y), e.hp, e.maxHp, e.type || 'crawler', e.color]);
+    // 压缩格式: [id, x, y, hp, maxHp, type, color, radius]
+    const eArr = enemies.map(e => [e.id, Math.round(e.x), Math.round(e.y), e.hp, e.maxHp, e.type || 'crawler', e.color, e.radius]);
     const bArr = bosses.map(b => [b.id, Math.round(b.x), Math.round(b.y), b.hp, b.maxHp, 'boss', b.color, b.radius]);
     const elArr = eliteEnemies.map(el => [el.id, Math.round(el.x), Math.round(el.y), el.hp, el.maxHp, el.name || 'elite', el.color, el.radius]);
 
@@ -2000,19 +1999,40 @@ setInterval(() => {
 function applyEnemyState(data) {
     if (!data || isHost) return;
 
+    // 记录旧ID用于检测死亡
+    const oldEIds = new Set(enemies.map(e => e.id));
+    const oldBIds = new Set(bosses.map(b => b.id));
+    const oldElIds = new Set(eliteEnemies.map(el => el.id));
+
     // 同步普通敌人
     const eMap = new Map();
     for (const e of enemies) eMap.set(e.id, e);
     const newEnemies = [];
-    for (const [id, x, y, hp, maxHp, type, color] of (data.e || [])) {
+    const newEIds = new Set();
+    for (const [id, x, y, hp, maxHp, type, color, radius] of (data.e || [])) {
+        newEIds.add(id);
         let e = eMap.get(id);
         if (e) {
             e.x = x; e.y = y; e.hp = hp; e.maxHp = maxHp;
         } else {
             e = new Enemy(x, y, 0);
-            e.id = id; e.hp = hp; e.maxHp = maxHp; e.color = color;
+            e.id = id; e.hp = hp; e.maxHp = maxHp;
+            e.color = color; e.type = type;
+            if (radius) e.radius = radius;
         }
         newEnemies.push(e);
+    }
+    // 检测死掉的敌人 - 播放死亡特效
+    for (const oid of oldEIds) {
+        if (!newEIds.has(oid)) {
+            const dead = eMap.get(oid);
+            if (dead) {
+                createParticles(dead.x, dead.y, dead.color, 18);
+                deathRings.push(new DeathRing(dead.x, dead.y, dead.color));
+                for (let s = 0; s < 8; s++) sparkParticles.push(new SparkParticle(dead.x, dead.y, dead.color));
+                screenFlash.trigger(dead.color, 0.06);
+            }
+        }
     }
     enemies = newEnemies;
 
@@ -2020,7 +2040,9 @@ function applyEnemyState(data) {
     const bMap = new Map();
     for (const b of bosses) bMap.set(b.id, b);
     const newBosses = [];
+    const newBIds = new Set();
     for (const [id, x, y, hp, maxHp, type, color, radius] of (data.b || [])) {
+        newBIds.add(id);
         let b = bMap.get(id);
         if (b) {
             b.x = x; b.y = y; b.hp = hp; b.maxHp = maxHp;
@@ -2031,13 +2053,25 @@ function applyEnemyState(data) {
         }
         newBosses.push(b);
     }
+    for (const oid of oldBIds) {
+        if (!newBIds.has(oid)) {
+            const dead = bMap.get(oid);
+            if (dead) {
+                bossDeathWaves.push(new BossDeathWave(dead.x, dead.y));
+                screenFlash.trigger('#ffcc00', 0.4);
+                for (let s = 0; s < 30; s++) sparkParticles.push(new SparkParticle(dead.x, dead.y, '#ffcc00'));
+            }
+        }
+    }
     bosses = newBosses;
 
     // 同步精英
     const elMap = new Map();
     for (const el of eliteEnemies) elMap.set(el.id, el);
     const newElites = [];
+    const newElIds = new Set();
     for (const [id, x, y, hp, maxHp, name, color, radius] of (data.el || [])) {
+        newElIds.add(id);
         let el = elMap.get(id);
         if (el) {
             el.x = x; el.y = y; el.hp = hp; el.maxHp = maxHp;
@@ -2047,6 +2081,16 @@ function applyEnemyState(data) {
             if (radius) el.radius = radius;
         }
         newElites.push(el);
+    }
+    for (const oid of oldElIds) {
+        if (!newElIds.has(oid)) {
+            const dead = elMap.get(oid);
+            if (dead) {
+                deathRings.push(new DeathRing(dead.x, dead.y, dead.color));
+                for (let s = 0; s < 15; s++) sparkParticles.push(new SparkParticle(dead.x, dead.y, '#ffdd00'));
+                screenFlash.trigger('#ffdd00', 0.2);
+            }
+        }
     }
     eliteEnemies = newElites;
 }
