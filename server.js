@@ -20,32 +20,47 @@ const MIME = {
     '.ico': 'image/x-icon', '.webp': 'image/webp',
 };
 
-// ═══ 用户数据管理 ═══
-const USERS_FILE = join(__dirname, 'users.json');
-let users = new Map(); // phone -> { phone, gold, upgrades, stats, lastLogin }
+// ═══ 用户数据管理 (MongoDB Atlas) ═══
+import { MongoClient } from 'mongodb';
 
-// 加载用户数据
-function loadUsers() {
+const MONGO_URI = process.env.MONGO_URI || '';
+let db = null;
+let usersCol = null;
+
+async function connectDB() {
+    if (!MONGO_URI) {
+        console.log('⚠️  未设置 MONGO_URI，用户数据仅保存在内存中');
+        return;
+    }
     try {
-        if (existsSync(USERS_FILE)) {
-            const data = JSON.parse(readFileSync(USERS_FILE, 'utf8'));
-            users = new Map(Object.entries(data));
-            console.log(`📦 已加载 ${users.size} 个用户`);
-        }
-    } catch(e) { console.error('加载用户数据失败:', e.message); }
+        const client = new MongoClient(MONGO_URI);
+        await client.connect();
+        db = client.db('neon_survivor');
+        usersCol = db.collection('users');
+        // 创建手机号唯一索引
+        await usersCol.createIndex({ phone: 1 }, { unique: true });
+        console.log('✅ MongoDB 连接成功');
+    } catch(e) {
+        console.error('❌ MongoDB 连接失败:', e.message);
+    }
 }
 
-// 保存用户数据
-function saveUsers() {
-    try {
-        const obj = Object.fromEntries(users);
-        writeFileSync(USERS_FILE, JSON.stringify(obj, null, 2));
-    } catch(e) { console.error('保存用户数据失败:', e.message); }
+// 内存缓存 (兜底)
+let usersCache = new Map();
+
+async function getUser(phone) {
+    if (usersCol) {
+        return await usersCol.findOne({ phone });
+    }
+    return usersCache.get(phone) || null;
 }
 
-// 定期保存
-setInterval(saveUsers, 30000); // 每30秒
-loadUsers();
+async function saveUser(user) {
+    if (usersCol) {
+        await usersCol.updateOne({ phone: user.phone }, { $set: user }, { upsert: true });
+    }
+    usersCache.set(user.phone, user);
+}
 
 // 读取POST body
 function readBody(req) {
@@ -70,16 +85,22 @@ const httpServer = createServer(async (req, res) => {
             res.end(JSON.stringify({ error: '请输入有效的手机号' }));
             return;
         }
-        let user = users.get(data.phone);
-        if (!user) {
-            user = { phone: data.phone, gold: 0, upgrades: {}, stats: { totalKills: 0, bestTime: 0, gamesPlayed: 0 }, createdAt: Date.now() };
-            users.set(data.phone, user);
-            console.log(`🆕 新用户注册: ${data.phone}`);
+        try {
+            let user = await getUser(data.phone);
+            if (!user) {
+                user = { phone: data.phone, gold: 0, upgrades: {}, stats: { totalKills: 0, bestTime: 0, gamesPlayed: 0 }, createdAt: Date.now() };
+                console.log(`🆕 新用户注册: ${data.phone}`);
+            }
+            user.lastLogin = Date.now();
+            await saveUser(user);
+            // 移除 MongoDB 内部字段
+            const { _id, ...cleanUser } = user;
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: true, user: cleanUser }));
+        } catch(e) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: '服务器错误' }));
         }
-        user.lastLogin = Date.now();
-        saveUsers();
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ ok: true, user }));
         return;
     }
 
@@ -90,18 +111,24 @@ const httpServer = createServer(async (req, res) => {
             res.end(JSON.stringify({ error: '缺少手机号' }));
             return;
         }
-        let user = users.get(data.phone);
-        if (!user) {
-            res.writeHead(404, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: '用户不存在' }));
-            return;
+        try {
+            let user = await getUser(data.phone);
+            if (!user) {
+                res.writeHead(404, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: '用户不存在' }));
+                return;
+            }
+            if (data.gold !== undefined) user.gold = data.gold;
+            if (data.upgrades) user.upgrades = data.upgrades;
+            if (data.stats) user.stats = { ...user.stats, ...data.stats };
+            await saveUser(user);
+            const { _id, ...cleanUser } = user;
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: true, user: cleanUser }));
+        } catch(e) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: '服务器错误' }));
         }
-        if (data.gold !== undefined) user.gold = data.gold;
-        if (data.upgrades) user.upgrades = data.upgrades;
-        if (data.stats) user.stats = { ...user.stats, ...data.stats };
-        saveUsers();
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ ok: true, user }));
         return;
     }
 
@@ -355,8 +382,13 @@ function broadcastRoomState(room) {
     });
 }
 
-httpServer.listen(PORT, '0.0.0.0', () => {
-    console.log(`\n🎮 霓虹幸存者 - 队伍服务器`);
-    console.log(`   本地:     http://localhost:${PORT}`);
-    console.log(`   等待玩家连接...\n`);
-});
+// 启动服务器
+(async () => {
+    await connectDB();
+    httpServer.listen(PORT, '0.0.0.0', () => {
+        console.log(`\n🎮 霓虹幸存者 - 队伍服务器`);
+        console.log(`   本地:     http://localhost:${PORT}`);
+        console.log(`   数据库:   ${MONGO_URI ? 'MongoDB Atlas ✅' : '内存模式 (数据不持久)'}`);
+        console.log(`   等待玩家连接...\n`);
+    });
+})();
