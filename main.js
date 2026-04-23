@@ -1825,43 +1825,64 @@ pauseBtn.addEventListener('click', togglePause);
 resumeBtn.addEventListener('click', resumeFromPause);
 quitBtn.addEventListener('click', quitToMenu);
 
-// 退出账号
-const logoutBtn = document.getElementById('logout-btn');
-if (logoutBtn) {
-    logoutBtn.addEventListener('click', () => {
-        // 先退出游戏
-        gameState = 'MENU';
-        pauseMenu.classList.remove('active');
-        pauseMenu.classList.add('hidden');
-        pauseBtn.classList.add('hidden');
-        hud.classList.remove('active');
-        hud.classList.add('hidden');
-        mainMenu.classList.remove('hidden');
-        mainMenu.classList.add('active');
-        if (teamWs) { teamWs.close(); teamWs = null; }
-        isTeamMode = false; teamPeers.clear();
-        clearTeamSession();
-        // 清除登录数据
-        currentUser = null;
-        localStorage.removeItem('neon_phone');
-        // 回到登录页
-        mainMenu.classList.remove('active');
-        mainMenu.classList.add('hidden');
-        if (loginScreen) { loginScreen.classList.remove('hidden'); loginScreen.classList.add('active'); }
-    });
+// 退出账号 (通用函数)
+function doLogout() {
+    gameState = 'MENU';
+    pauseMenu.classList.remove('active'); pauseMenu.classList.add('hidden');
+    pauseBtn.classList.add('hidden');
+    hud.classList.remove('active'); hud.classList.add('hidden');
+    mainMenu.classList.remove('active'); mainMenu.classList.add('hidden');
+    const menuSettings = document.getElementById('menu-settings');
+    if (menuSettings) { menuSettings.classList.remove('active'); menuSettings.classList.add('hidden'); }
+    if (teamWs) { teamWs.close(); teamWs = null; }
+    isTeamMode = false; teamPeers.clear();
+    clearTeamSession();
+    currentUser = null;
+    localStorage.removeItem('neon_phone');
+    if (loginScreen) { loginScreen.classList.remove('hidden'); loginScreen.classList.add('active'); }
 }
 
+const logoutBtn = document.getElementById('logout-btn');
+if (logoutBtn) logoutBtn.addEventListener('click', doLogout);
+
+// 主页设置面板
+const menuSettingsBtn = document.getElementById('menu-settings-btn');
+const menuSettingsPanel = document.getElementById('menu-settings');
+const menuSettingsBack = document.getElementById('menu-settings-back');
+const menuLogoutBtn = document.getElementById('menu-logout-btn');
+const menuSettingsPhone = document.getElementById('menu-settings-phone');
+
+if (menuSettingsBtn) {
+    menuSettingsBtn.addEventListener('click', () => {
+        mainMenu.classList.remove('active'); mainMenu.classList.add('hidden');
+        if (menuSettingsPanel) { menuSettingsPanel.classList.remove('hidden'); menuSettingsPanel.classList.add('active'); }
+        if (menuSettingsPhone && currentUser) { menuSettingsPhone.textContent = '当前账号: ' + currentUser.phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2'); }
+    });
+}
+if (menuSettingsBack) {
+    menuSettingsBack.addEventListener('click', () => {
+        if (menuSettingsPanel) { menuSettingsPanel.classList.remove('active'); menuSettingsPanel.classList.add('hidden'); }
+        mainMenu.classList.remove('hidden'); mainMenu.classList.add('active');
+    });
+}
+if (menuLogoutBtn) menuLogoutBtn.addEventListener('click', doLogout);
+
 window.addEventListener('keydown', (e) => {
-  // 空格键触发设置
-  if (e.key === ' ') {
-    if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT') {
-      e.preventDefault();
-      return;
-    }
+  // ESC 键触发设置
+  if (e.key === 'Escape') {
     if (gameState === 'PLAYING' || gameState === 'PAUSED') {
       e.preventDefault();
       togglePause();
     }
+    // 主页设置面板也用 ESC 关闭
+    if (menuSettingsPanel && !menuSettingsPanel.classList.contains('hidden')) {
+      menuSettingsPanel.classList.remove('active'); menuSettingsPanel.classList.add('hidden');
+      mainMenu.classList.remove('hidden'); mainMenu.classList.add('active');
+    }
+  }
+  // 防止空格滚动
+  if (e.key === ' ' && (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT')) {
+    e.preventDefault();
   }
 });
 
