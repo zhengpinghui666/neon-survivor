@@ -651,7 +651,7 @@ function update(dt) {
         elite.hp = Math.ceil(elite.hp * diff.enemyHpScale);
         elite.maxHp = elite.hp;
         eliteEnemies.push(elite);
-        damageNumbers.push(new DamageNumber(player.x, player.y - 60, '精英来袭!', '#ffdd00'));
+
         eliteSpawnTimer = 45 + Math.random() * 15;
       }
     }
@@ -836,7 +836,7 @@ function update(dt) {
         if (cdx*cdx + cdy*cdy < (player.radius + hp.radius)**2) {
             if (hp.isHealthPack) {
                 player.hp = Math.min(player.hp + 20, player.maxHp);
-                damageNumbers.push(new DamageNumber(hp.x, hp.y - 20, '+20 HP', '#44ff88'));
+
             } else {
                 applyDrop(hp.drop, hp.x, hp.y);
                 screenFlash.trigger(hp.drop.color, 0.15);
@@ -867,7 +867,7 @@ function update(dt) {
             // mission chest = half level
             const halfLevelXp = Math.ceil(nextLevelXp * 0.5);
             addXp(halfLevelXp);
-            damageNumbers.push(new DamageNumber(chests[i].x, chests[i].y - 20, `经验+${halfLevelXp}!`, '#ffcc00'));
+
             screenFlash.trigger('#ffcc00', 0.2);
         }
     }
@@ -878,7 +878,7 @@ function update(dt) {
             const cx = player.x + (Math.random()-0.5)*300;
             const cy = player.y + (Math.random()-0.5)*300;
             chests.push(new TreasureChest(cx, cy));
-            damageNumbers.push(new DamageNumber(player.x, player.y - 30, '任务完成!', '#44ff88'));
+
             screenFlash.trigger('#44ff88', 0.15);
         }
     }
@@ -963,11 +963,11 @@ function update(dt) {
                 const evoId = evolvable[0];
                 evoManager.evolve(evoId);
                 applyWeaponEvolution(evoId);
-                damageNumbers.push(new DamageNumber(el.x, el.y - 30, '武器进化!', '#ffdd00'));
+
                 screenFlash.trigger('#ffdd00', 0.4);
                 applyShake(10, 0.3);
             } else {
-                damageNumbers.push(new DamageNumber(el.x, el.y - 20, '精英击杀!', '#ffdd00'));
+
             }
 
             registerKill(el);
@@ -1028,7 +1028,7 @@ function update(dt) {
             // Boss kill = level up
             const fullLevelXp = nextLevelXp - playerXp;
             if (fullLevelXp > 0) addXp(fullLevelXp);
-            damageNumbers.push(new DamageNumber(b.x, b.y - 40, 'BOSS KILL! 升级!', '#ffcc00'));
+
             continue;
         }
         
@@ -1074,7 +1074,7 @@ function update(dt) {
                 if (enemies.length < MAX_ENEMIES) enemies.push(e);
             }
             createParticles(b.x, b.y, '#ff00ff', 15);
-            damageNumbers.push(new DamageNumber(b.x, b.y - 30, 'SUMMON!', '#ff00ff'));
+
             b.summonRequested = false;
         }
     }
@@ -1217,6 +1217,7 @@ function registerKill(enemy) {
 // Apply weapon evolution effects
 // 成就通知
 function showAchievement(ach) {
+    return; // disabled
     let banner = document.getElementById('achievement-banner');
     if (!banner) {
         banner = document.createElement('div');
@@ -1627,7 +1628,7 @@ function applyDrop(drop, x, y) {
     switch (drop.type) {
         case 'fullHeal':
             player.hp = player.maxHp;
-            damageNumbers.push(new DamageNumber(x, y - 20, '满血!', '#ff3366'));
+
             break;
         case 'magnetAll':
             // 吸引全场宝石
@@ -1635,23 +1636,23 @@ function applyDrop(drop, x, y) {
                 g.x = player.x + (Math.random() - 0.5) * 30;
                 g.y = player.y + (Math.random() - 0.5) * 30;
             }
-            damageNumbers.push(new DamageNumber(x, y - 20, '磁力!', '#ffaa00'));
+
             break;
         case 'shield':
             player.invincibleTimer = 3.0;
-            damageNumbers.push(new DamageNumber(x, y - 20, '护盾3s!', '#00ccff'));
+
             break;
         case 'damageUp':
             playerDamageBonus += 5;
-            damageNumbers.push(new DamageNumber(x, y - 20, 'ATK+5', '#ff6600'));
+
             break;
         case 'speedUp':
             player.speed += 20;
-            damageNumbers.push(new DamageNumber(x, y - 20, 'SPD+20', '#66ff66'));
+
             break;
         case 'xpBoost':
             xpBoostTimer = 15;
-            damageNumbers.push(new DamageNumber(x, y - 20, '双倍经验15s!', '#aa66ff'));
+
             break;
         case 'crateExplosion':
             // 清屏伤害
@@ -1661,15 +1662,15 @@ function applyDrop(drop, x, y) {
             }
             screenFlash.trigger('#ff0044', 0.3);
             shakeDuration = 0.3; shakeIntensity = 8;
-            damageNumbers.push(new DamageNumber(x, y - 20, '爆裂!', '#ff0044'));
+
             break;
         case 'multiShot':
             projectileCount++;
-            damageNumbers.push(new DamageNumber(x, y - 20, '弹幕+1', '#00ffaa'));
+
             break;
         case 'critUp':
             playerCritChance = Math.min(0.5, playerCritChance + 0.05);
-            damageNumbers.push(new DamageNumber(x, y - 20, '暴击+5%', '#ffdd00'));
+
             break;
     }
     updateHud();
