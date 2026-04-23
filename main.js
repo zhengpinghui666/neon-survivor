@@ -1246,6 +1246,39 @@ function draw(ctx) {
    damageNumbers.forEach(d => d.draw(ctx));
    if (player) player.draw(ctx);
 
+   // 绘制队友
+   if (isTeamMode && player) {
+       const PEER_COLORS = ['#00ddff', '#ff66aa', '#66ff44', '#ffaa00'];
+       let ci = 0;
+       for (const [pid, peer] of teamPeers) {
+           if (!peer.x) continue;
+           const color = PEER_COLORS[ci % PEER_COLORS.length];
+           const sx = peer.x - cameraX;
+           const sy = peer.y - cameraY;
+           ctx.save();
+           ctx.globalAlpha = 0.7;
+           ctx.beginPath();
+           ctx.arc(sx, sy, 12, 0, Math.PI * 2);
+           ctx.fillStyle = color;
+           ctx.fill();
+           ctx.strokeStyle = '#fff';
+           ctx.lineWidth = 1.5;
+           ctx.stroke();
+           ctx.font = '10px Outfit';
+           ctx.textAlign = 'center';
+           ctx.fillStyle = color;
+           ctx.fillText(peer.name || '队友', sx, sy - 18);
+           if (peer.hp && peer.maxHp) {
+               ctx.fillStyle = 'rgba(0,0,0,0.5)';
+               ctx.fillRect(sx - 12, sy + 16, 24, 3);
+               ctx.fillStyle = color;
+               ctx.fillRect(sx - 12, sy + 16, 24 * (peer.hp / peer.maxHp), 3);
+           }
+           ctx.restore();
+           ci++;
+       }
+   }
+
    ctx.restore();
 
    // 波次标题 (HUD overlay, not affected by camera)
@@ -1910,46 +1943,4 @@ setInterval(() => {
     }
 }, 100); // 10fps 同步
 
-// 在画面上绘制队友 (在 draw 函数最后添加 hook)
-const origDraw = draw;
-draw = function() {
-    origDraw();
-    if (!isTeamMode || !player) return;
-    
-    const PEER_COLORS = ['#00ddff', '#ff66aa', '#66ff44', '#ffaa00'];
-    let ci = 0;
-    for (const [pid, peer] of teamPeers) {
-        if (!peer.x) continue;
-        const color = PEER_COLORS[ci % PEER_COLORS.length];
-        const sx = peer.x - cameraX;
-        const sy = peer.y - cameraY;
-        
-        // 画队友角色
-        ctx.save();
-        ctx.globalAlpha = 0.7;
-        ctx.beginPath();
-        ctx.arc(sx, sy, 12, 0, Math.PI * 2);
-        ctx.fillStyle = color;
-        ctx.fill();
-        ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-        
-        // 名字
-        ctx.font = '10px Outfit';
-        ctx.textAlign = 'center';
-        ctx.fillStyle = color;
-        ctx.fillText(peer.name || '队友', sx, sy - 18);
-        
-        // 血条
-        if (peer.hp && peer.maxHp) {
-            const bw = 24, bh = 3;
-            ctx.fillStyle = 'rgba(0,0,0,0.5)';
-            ctx.fillRect(sx - bw/2, sy + 16, bw, bh);
-            ctx.fillStyle = color;
-            ctx.fillRect(sx - bw/2, sy + 16, bw * (peer.hp / peer.maxHp), bh);
-        }
-        ctx.restore();
-        ci++;
-    }
-};
+
