@@ -1,4 +1,4 @@
-// 虚拟摇杆 — 触屏控制
+// 虚拟摇杆 — 触屏控制（优化版）
 export class VirtualJoystick {
     constructor(canvas) {
         this.canvas = canvas;
@@ -9,46 +9,58 @@ export class VirtualJoystick {
         this.thumbY = 0;
         this.dx = 0; // 归一化方向
         this.dy = 0;
-        this.baseRadius = 60;
-        this.thumbRadius = 26;
-        this.maxDist = 55;
+        this.baseRadius = 55;
+        this.thumbRadius = 24;
+        this.maxDist = 50;
         this.opacity = 0;
         this.touchId = null;
+        this._deadZone = 8; // 像素死区
 
         this._setupTouch();
     }
 
     _setupTouch() {
-        const c = this.canvas;
-        
-        c.addEventListener('touchstart', (e) => {
-            e.preventDefault();
+        // 绑定到 document 而非 canvas，防止 HUD 元素拦截触摸
+        const getPos = (touch) => {
+            return { x: touch.clientX, y: touch.clientY };
+        };
+
+        document.addEventListener('touchstart', (e) => {
             if (this.active) return;
+            // 只响应屏幕左半区的触摸（右半区留给其他UI）
             const touch = e.changedTouches[0];
+            if (touch.clientX > window.innerWidth * 0.6) return;
+            
             this.touchId = touch.identifier;
-            const rect = c.getBoundingClientRect();
-            this.baseX = touch.clientX - rect.left;
-            this.baseY = touch.clientY - rect.top;
+            const pos = getPos(touch);
+            this.baseX = pos.x;
+            this.baseY = pos.y;
             this.thumbX = this.baseX;
             this.thumbY = this.baseY;
             this.active = true;
-            this.opacity = 0.6;
+            this.opacity = 0.7;
             this.dx = 0;
             this.dy = 0;
-        }, { passive: false });
+        }, { passive: true });
 
-        c.addEventListener('touchmove', (e) => {
-            e.preventDefault();
+        document.addEventListener('touchmove', (e) => {
             if (!this.active) return;
             for (const touch of e.changedTouches) {
                 if (touch.identifier !== this.touchId) continue;
-                const rect = c.getBoundingClientRect();
-                let tx = touch.clientX - rect.left;
-                let ty = touch.clientY - rect.top;
-                
-                let ddx = tx - this.baseX;
-                let ddy = ty - this.baseY;
+                const pos = getPos(touch);
+                let ddx = pos.x - this.baseX;
+                let ddy = pos.y - this.baseY;
                 let dist = Math.sqrt(ddx * ddx + ddy * ddy);
+                
+                // 允许底盘跟随：如果拉得太远，底盘也跟着移动
+                if (dist > this.maxDist * 1.5) {
+                    const overflow = dist - this.maxDist;
+                    this.baseX += (ddx / dist) * overflow * 0.3;
+                    this.baseY += (ddy / dist) * overflow * 0.3;
+                    ddx = pos.x - this.baseX;
+                    ddy = pos.y - this.baseY;
+                    dist = Math.sqrt(ddx * ddx + ddy * ddy);
+                }
                 
                 if (dist > this.maxDist) {
                     ddx = (ddx / dist) * this.maxDist;
@@ -59,7 +71,8 @@ export class VirtualJoystick {
                 this.thumbX = this.baseX + ddx;
                 this.thumbY = this.baseY + ddy;
                 
-                if (dist > 3) {
+                // 更小的死区确保灵敏
+                if (dist > this._deadZone) {
                     this.dx = ddx / dist;
                     this.dy = ddy / dist;
                 } else {
@@ -67,7 +80,7 @@ export class VirtualJoystick {
                     this.dy = 0;
                 }
             }
-        }, { passive: false });
+        }, { passive: true });
 
         const onEnd = (e) => {
             for (const touch of e.changedTouches) {
@@ -80,8 +93,8 @@ export class VirtualJoystick {
                 }
             }
         };
-        c.addEventListener('touchend', onEnd, { passive: false });
-        c.addEventListener('touchcancel', onEnd, { passive: false });
+        document.addEventListener('touchend', onEnd, { passive: true });
+        document.addEventListener('touchcancel', onEnd, { passive: true });
     }
 
     // 在 HUD 层绘制（不受相机平移影响）
@@ -96,14 +109,14 @@ export class VirtualJoystick {
         ctx.arc(this.baseX, this.baseY, this.baseRadius, 0, Math.PI * 2);
         ctx.fillStyle = 'rgba(255, 255, 255, 0.06)';
         ctx.fill();
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
         ctx.lineWidth = 1.5;
         ctx.stroke();
 
         // 方向指示圈
         ctx.beginPath();
         ctx.arc(this.baseX, this.baseY, this.maxDist, 0, Math.PI * 2);
-        ctx.strokeStyle = 'rgba(0, 200, 255, 0.1)';
+        ctx.strokeStyle = 'rgba(38, 231, 255, 0.12)';
         ctx.lineWidth = 1;
         ctx.stroke();
 
@@ -114,13 +127,23 @@ export class VirtualJoystick {
             this.thumbX, this.thumbY, 0,
             this.thumbX, this.thumbY, this.thumbRadius
         );
-        thumbGrad.addColorStop(0, 'rgba(0, 220, 255, 0.35)');
-        thumbGrad.addColorStop(1, 'rgba(0, 150, 255, 0.1)');
+        thumbGrad.addColorStop(0, 'rgba(38, 231, 255, 0.4)');
+        thumbGrad.addColorStop(1, 'rgba(38, 231, 255, 0.08)');
         ctx.fillStyle = thumbGrad;
         ctx.fill();
-        ctx.strokeStyle = 'rgba(0, 200, 255, 0.3)';
+        ctx.strokeStyle = 'rgba(38, 231, 255, 0.35)';
         ctx.lineWidth = 1.5;
         ctx.stroke();
+
+        // 方向指示线
+        if (this.dx !== 0 || this.dy !== 0) {
+            ctx.beginPath();
+            ctx.moveTo(this.baseX, this.baseY);
+            ctx.lineTo(this.thumbX, this.thumbY);
+            ctx.strokeStyle = 'rgba(38, 231, 255, 0.15)';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
 
         ctx.restore();
     }
