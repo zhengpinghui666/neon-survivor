@@ -27,9 +27,7 @@ export class VirtualJoystick {
 
         document.addEventListener('touchstart', (e) => {
             if (this.active) return;
-            // 只响应屏幕左半区的触摸（右半区留给其他UI）
             const touch = e.changedTouches[0];
-            if (touch.clientX > window.innerWidth * 0.6) return;
             
             this.touchId = touch.identifier;
             const pos = getPos(touch);
