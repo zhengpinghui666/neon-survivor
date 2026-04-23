@@ -80,6 +80,25 @@ body {
   z-index: 50;
 }
 
+/* ─────── 主页金币 ─────── */
+.menu-gold {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  padding: 6px 14px;
+  background: rgba(10, 15, 30, 0.7);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(255, 204, 0, 0.2);
+  border-radius: 20px;
+  color: #ffcc00;
+  font-size: 0.9rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  z-index: 100;
+}
+
 /* ─────── 玻璃拟态 ─────── */
 .glassmorphism {
   background: var(--glass-bg);

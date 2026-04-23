@@ -1925,6 +1925,8 @@ requestAnimationFrame(autoLoop);
 function updateGoldDisplay() {
     if (goldDisplay) goldDisplay.innerText = metaProg.gold;
     if (metaGoldDisplay) metaGoldDisplay.innerText = metaProg.gold;
+    const menuGoldValue = document.getElementById('menu-gold-value');
+    if (menuGoldValue) menuGoldValue.innerText = metaProg.gold;
 }
 
 function renderMetaUpgrades() {
