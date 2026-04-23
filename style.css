@@ -437,6 +437,7 @@ body {
   justify-content: center;
   transition: all 0.2s;
   z-index: 100;
+  pointer-events: auto;
 }
 .pause-btn:hover {
   background: rgba(0, 200, 255, 0.15);
