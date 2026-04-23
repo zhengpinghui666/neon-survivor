@@ -194,8 +194,8 @@ export class Player {
         ctx.beginPath();
         ctx.ellipse(0, -r * 0.2, r * 0.15, r * 0.25, 0, 0, Math.PI * 2);
         const cockpitGrad = ctx.createRadialGradient(0, -r * 0.25, 0, 0, -r * 0.2, r * 0.2);
-        cockpitGrad.addColorStop(0, isHit ? '#ff6688' : '#00ddff');
-        cockpitGrad.addColorStop(1, isHit ? '#880033' : '#004466');
+        cockpitGrad.addColorStop(0, isHit ? '#ff6688' : (this.color || '#00ddff'));
+        cockpitGrad.addColorStop(1, isHit ? '#880033' : '#0a1428');
         ctx.fillStyle = cockpitGrad;
         ctx.fill();
 

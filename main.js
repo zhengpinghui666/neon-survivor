@@ -1878,6 +1878,17 @@ function triggerGameOver() {
   finalTimeText.innerText = `${minutes}:${seconds}`;
   if (finalKillsText) finalKillsText.innerText = killCount;
   if (finalLevelText) finalLevelText.innerText = playerLevel;
+  // 显示英雄信息
+  const hero = getHero(player?.heroId || selectedHeroId);
+  let heroInfoEl = document.getElementById('final-hero-info');
+  if (!heroInfoEl) {
+    heroInfoEl = document.createElement('div');
+    heroInfoEl.id = 'final-hero-info';
+    heroInfoEl.style.cssText = 'margin:6px 0;font-size:0.8rem;opacity:0.6;';
+    const parent = finalTimeText?.parentElement;
+    if (parent) parent.insertBefore(heroInfoEl, finalTimeText.nextSibling);
+  }
+  heroInfoEl.innerHTML = '<span style="color:' + hero.color + '">\u25C6</span> ' + hero.name;
 
   // Gold reward
   const goldEarned = metaProg.calculateRunGold(killCount, surviveTime, bossKillsThisRun, maxComboThisRun);
