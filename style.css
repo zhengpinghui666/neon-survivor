@@ -1103,6 +1103,9 @@ body {
 .lb-wave { width: 50px; text-align: right; }
 
 /* ── Team System ── */
+#team-lobby.active, #join-dialog.active {
+  background: var(--bg-color);
+}
 .team-buttons { display: flex; gap: 10px; margin-top: 4px; }
 .team-btn { font-size: 0.85rem !important; padding: 8px 18px !important; flex: 1; }
 .lobby-header { text-align: center; margin-bottom: 12px; }
