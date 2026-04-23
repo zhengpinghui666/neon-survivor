@@ -1705,6 +1705,9 @@ function quitToMenu() {
   pauseMenu.classList.remove('active');
   pauseMenu.classList.add('hidden');
   pauseBtn.classList.add('hidden');
+  if (teamWs) { teamWs.close(); teamWs = null; }
+  isTeamMode = false; teamPeers.clear();
+  clearTeamSession();
   hud.classList.remove('active');
   hud.classList.add('hidden');
   mainMenu.classList.remove('hidden');
@@ -1727,6 +1730,38 @@ window.addEventListener('keydown', (e) => {
     }
   }
 });
+
+// ─── 防误刷新 ───
+window.addEventListener('beforeunload', (e) => {
+  if (gameState === 'PLAYING' || gameState === 'PAUSED') {
+    e.preventDefault();
+    e.returnValue = '';
+  }
+});
+
+// ─── 组队自动重连 ───
+function saveTeamSession() {
+  if (teamRoom && myPlayerId) {
+    sessionStorage.setItem('neon_team', JSON.stringify({ room: teamRoom, name: playerNameInput?.value || '玩家' }));
+  }
+}
+function clearTeamSession() {
+  sessionStorage.removeItem('neon_team');
+}
+// 页面加载时检查是否有未完成的房间会话
+(function tryAutoReconnect() {
+  const saved = sessionStorage.getItem('neon_team');
+  if (!saved) return;
+  try {
+    const { room, name } = JSON.parse(saved);
+    if (room && room.length === 6) {
+      // 延迟一点再连接,确保页面完全加载
+      setTimeout(() => {
+        connectTeam('join', room, name || '玩家');
+      }, 500);
+    }
+  } catch(e) {}
+})();
 
 requestAnimationFrame(autoLoop);
 
@@ -1841,6 +1876,7 @@ function connectTeam(action, roomCode, playerName) {
                 teamRoom = msg.code;
                 isHost = msg.type === 'room_created' || msg.hostId === msg.playerId;
                 showLobby();
+                saveTeamSession();
                 break;
                 
             case 'room_state':
@@ -1986,6 +2022,7 @@ if (leaveRoomBtn) {
         if (teamWs) teamWs.close();
         teamWs = null; teamRoom = null; isTeamMode = false;
         teamPeers.clear();
+        clearTeamSession();
         hideLobby();
         mainMenu.classList.remove('hidden'); mainMenu.classList.add('active');
     });
