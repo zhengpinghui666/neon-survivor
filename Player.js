@@ -126,13 +126,13 @@ export class Player {
 
         const isHit = this.hitFlashTimer > 0;
         const r = this.radius;
-        const glowColor = isHit ? '#ff003c' : '#00f0ff';
+        const glowColor = isHit ? '#ff003c' : (this.color || '#00f0ff');
 
         // ── 护盾光圈 ──
         const shieldPulse = 0.15 + Math.sin(this.pulsePhase) * 0.06;
         ctx.beginPath();
         ctx.arc(0, 0, r * 1.4, 0, Math.PI * 2);
-        ctx.strokeStyle = `rgba(0, 240, 255, ${shieldPulse})`;
+        ctx.strokeStyle = isHit ? `rgba(255, 0, 60, ${shieldPulse})` : `${this.color || '#00f0ff'}${Math.round(shieldPulse * 255).toString(16).padStart(2,'0')}`;
         ctx.lineWidth = 1;
         ctx.stroke();
 

@@ -63,6 +63,65 @@
           <h1 class="title-glow">霓虹幸存者</h1>
           <p class="subtitle">在几何虫群中生存下去</p>
           
+          <!-- 英雄选择 -->
+          <div class="hero-selector">
+            <div class="hero-card selected" data-hero="ranger">
+              <div class="hero-card-glow" style="--hero-color:#26E7FF"></div>
+              <div class="hero-icon" style="color:#26E7FF">
+                <svg viewBox="0 0 40 40" width="36" height="36">
+                  <polygon points="20,4 36,20 20,36 4,20" fill="none" stroke="currentColor" stroke-width="2"/>
+                  <circle cx="20" cy="20" r="5" fill="currentColor" opacity="0.6"/>
+                  <line x1="20" y1="10" x2="20" y2="4" stroke="currentColor" stroke-width="1.5"/>
+                </svg>
+              </div>
+              <div class="hero-name">脉冲枪手</div>
+              <div class="hero-tags">
+                <span class="hero-tag" style="--tag-color:#26E7FF">远程</span>
+                <span class="hero-tag" style="--tag-color:#ff9c7a">暴击</span>
+                <span class="hero-tag" style="--tag-color:#44ff88">简单</span>
+              </div>
+              <div class="hero-desc">持续火力最稳定，适合新手</div>
+            </div>
+
+            <div class="hero-card" data-hero="arcMage">
+              <div class="hero-card-glow" style="--hero-color:#B38CFF"></div>
+              <div class="hero-icon" style="color:#B38CFF">
+                <svg viewBox="0 0 40 40" width="36" height="36">
+                  <circle cx="20" cy="20" r="14" fill="none" stroke="currentColor" stroke-width="2"/>
+                  <circle cx="20" cy="20" r="6" fill="currentColor" opacity="0.5"/>
+                  <path d="M10,14 Q20,8 30,14" stroke="currentColor" stroke-width="1.5" fill="none"/>
+                  <path d="M10,26 Q20,32 30,26" stroke="currentColor" stroke-width="1.5" fill="none"/>
+                </svg>
+              </div>
+              <div class="hero-name">电弧术士</div>
+              <div class="hero-tags">
+                <span class="hero-tag" style="--tag-color:#B38CFF">范围</span>
+                <span class="hero-tag" style="--tag-color:#26E7FF">控制</span>
+                <span class="hero-tag" style="--tag-color:#ff9c7a">华丽</span>
+              </div>
+              <div class="hero-desc">攻击会连锁，清怪效率很高</div>
+            </div>
+
+            <div class="hero-card" data-hero="engineer">
+              <div class="hero-card-glow" style="--hero-color:#7BFFD6"></div>
+              <div class="hero-icon" style="color:#7BFFD6">
+                <svg viewBox="0 0 40 40" width="36" height="36">
+                  <polygon points="20,5 35,13 35,27 20,35 5,27 5,13" fill="none" stroke="currentColor" stroke-width="2"/>
+                  <circle cx="20" cy="20" r="5" fill="currentColor" opacity="0.5"/>
+                  <circle cx="12" cy="12" r="2" fill="currentColor" opacity="0.7"/>
+                  <circle cx="28" cy="12" r="2" fill="currentColor" opacity="0.7"/>
+                </svg>
+              </div>
+              <div class="hero-name">无人机工程师</div>
+              <div class="hero-tags">
+                <span class="hero-tag" style="--tag-color:#7BFFD6">召唤</span>
+                <span class="hero-tag" style="--tag-color:#ffcc00">持续</span>
+                <span class="hero-tag" style="--tag-color:#B38CFF">辅助</span>
+              </div>
+              <div class="hero-desc">召唤无人机自动协同作战</div>
+            </div>
+          </div>
+
           <!-- 难度选择 -->
           <div class="difficulty-selector">
             <span class="diff-label">难度</span>

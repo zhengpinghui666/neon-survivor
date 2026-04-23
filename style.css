@@ -115,6 +115,85 @@ body {
   gap: 8px;
 }
 
+/* ─────── 英雄选择 ─────── */
+.hero-selector {
+  display: flex;
+  gap: 10px;
+  margin: 12px 0 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.hero-card {
+  position: relative;
+  width: 110px;
+  padding: 14px 8px 10px;
+  background: rgba(10, 15, 30, 0.6);
+  border: 1.5px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.25s ease;
+  overflow: hidden;
+}
+.hero-card-glow {
+  position: absolute;
+  top: -30px; left: 50%;
+  transform: translateX(-50%);
+  width: 80px; height: 80px;
+  border-radius: 50%;
+  background: var(--hero-color);
+  opacity: 0;
+  filter: blur(30px);
+  transition: opacity 0.3s;
+  pointer-events: none;
+}
+.hero-card:hover {
+  border-color: rgba(255,255,255,0.2);
+  transform: translateY(-2px);
+}
+.hero-card:hover .hero-card-glow {
+  opacity: 0.15;
+}
+.hero-card.selected {
+  border-color: var(--hero-color, #26E7FF);
+  background: rgba(10, 15, 30, 0.85);
+  box-shadow: 0 0 20px rgba(38, 231, 255, 0.15);
+}
+.hero-card.selected .hero-card-glow {
+  opacity: 0.25;
+}
+.hero-icon {
+  margin-bottom: 6px;
+}
+.hero-name {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 5px;
+  letter-spacing: 0.5px;
+}
+.hero-tags {
+  display: flex;
+  gap: 3px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 5px;
+}
+.hero-tag {
+  font-size: 0.55rem;
+  padding: 1px 5px;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--tag-color, #888);
+  color: var(--tag-color, #888);
+  opacity: 0.8;
+}
+.hero-desc {
+  font-size: 0.6rem;
+  color: rgba(255,255,255,0.4);
+  line-height: 1.3;
+}
+
 .title-deco {
   display: flex;
   align-items: center;

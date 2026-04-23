@@ -15,6 +15,7 @@ import { BreakableCrate, DropEffect } from './BreakableCrate.js';
 import { WeaponEvolutionManager } from './WeaponEvolution.js';
 import { EliteEnemy, resetEliteIdCounter } from './EliteEnemy.js';
 import { MetaProgression, META_UPGRADES } from './MetaProgression.js';
+import { HEROES, HERO_LIST, getHero } from './heroes.js';
 
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
@@ -176,6 +177,23 @@ async function syncToCloud() {
 let gameState = 'MENU';
 let lastTime = performance.now();
 let surviveTime = 0;
+let selectedHeroId = 'ranger'; // 当前选择的英雄
+
+// 英雄选择卡片交互
+document.querySelectorAll('.hero-card').forEach(card => {
+  card.addEventListener('click', () => {
+    document.querySelectorAll('.hero-card').forEach(c => {
+      c.classList.remove('selected');
+      c.style.borderColor = '';
+      c.style.boxShadow = '';
+    });
+    card.classList.add('selected');
+    selectedHeroId = card.dataset.hero;
+    const hero = getHero(selectedHeroId);
+    card.style.borderColor = hero.color;
+    card.style.boxShadow = `0 0 20px ${hero.glowColor}`;
+  });
+});
 
 // 难度配置
 const diffConfigs = {
@@ -1687,14 +1705,17 @@ function resumeGame() {
 
 function startGame() {
   diff = diffConfigs[selectedDifficulty]; // 重新读取难度
+  const hero = getHero(selectedHeroId); // 获取英雄配置
   gameState = 'PLAYING';
   surviveTime = 0;
   lastTime = performance.now();
   
   player = new Player(canvas.width / 2, canvas.height / 2);
-  player.maxHp = diff.playerHp;
-  player.hp = diff.playerHp;
-  player.speed = diff.playerSpeed;
+  player.heroId = hero.id;
+  player.color = hero.color;
+  player.maxHp = Math.round(diff.playerHp * hero.statMod.hp);
+  player.hp = player.maxHp;
+  player.speed = Math.round(diff.playerSpeed * hero.statMod.speed);
   
   enemies = []; bosses = []; projectiles = [];
   particles = []; gems = []; damageNumbers = [];
@@ -1722,7 +1743,8 @@ function startGame() {
   killCount = 0; comboCount = 0; comboTimer = 0; xpMultiplier = 1; lastComboTier = -1;
   currentWave = 1; waveTimer = WAVE_DURATION; waveResting = false; waveAnnounceTimer = 2.0;
   achievementQueue.length = 0; achievementShowTimer = 0; unlockedAchievements.clear();
-  playerCritChance = 0.0;
+  playerCritChance = hero.statMod.critRate || 0.0;
+  playerDamageBonus = metaBonus.damage * (hero.statMod.attack || 1.0);
   metaXpMult = metaBonus.xpMult;
   metaArmorReduction = 0;
   nextBossTime = diff.bossInterval; bossWarningTimer = 0;
