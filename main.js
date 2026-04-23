@@ -758,8 +758,17 @@ function update(dt) {
     // ─ 敌人更新与玩家碰撞 ─
     for (let i = enemies.length - 1; i >= 0; i--) {
         let e = enemies[i];
-        // 组队模式非房主: 不跑AI，位置由房主同步
-        if (!isTeamMode || isHost) e.update(dt, player.x, player.y, terrains);
+        // 组队模式非房主: 用插值平滑移动到目标位置
+        if (isTeamMode && !isHost) {
+            if (e._tx !== undefined) {
+                const lerpSpeed = 12 * dt; // 越大越快跟上
+                e.x += (e._tx - e.x) * Math.min(lerpSpeed, 1);
+                e.y += (e._ty - e.y) * Math.min(lerpSpeed, 1);
+            }
+            if (e.hitFlash > 0) e.hitFlash -= dt;
+        } else {
+            e.update(dt, player.x, player.y, terrains);
+        }
         
         // 清理死亡敌人 (组队非房主: 不本地处理死亡, 由房主同步控制)
         if (e.hp <= 0 && (!isTeamMode || isHost)) {
@@ -787,7 +796,19 @@ function update(dt) {
     // ─ Elite enemy update ─
     for (let i = eliteEnemies.length - 1; i >= 0; i--) {
         let el = eliteEnemies[i];
-        if (!isTeamMode || isHost) el.update(dt, player.x, player.y, terrains);
+        if (isTeamMode && !isHost) {
+            if (el._tx !== undefined) {
+                const lerpSpeed = 12 * dt;
+                el.x += (el._tx - el.x) * Math.min(lerpSpeed, 1);
+                el.y += (el._ty - el.y) * Math.min(lerpSpeed, 1);
+            }
+            if (el.hitFlash > 0) el.hitFlash -= dt;
+            el.rotation += 1.5 * dt;
+            el.pulsePhase += dt * 4;
+            el.auraPhase += dt * 2;
+        } else {
+            el.update(dt, player.x, player.y, terrains);
+        }
 
         if (el.hp <= 0 && (!isTeamMode || isHost)) {
             eliteEnemies.splice(i, 1);
@@ -837,7 +858,18 @@ function update(dt) {
     // ─ Boss 更新 ─
     for (let i = bosses.length - 1; i >= 0; i--) {
         let b = bosses[i];
-        if (!isTeamMode || isHost) b.update(dt, player.x, player.y);
+        if (isTeamMode && !isHost) {
+            if (b._tx !== undefined) {
+                const lerpSpeed = 12 * dt;
+                b.x += (b._tx - b.x) * Math.min(lerpSpeed, 1);
+                b.y += (b._ty - b.y) * Math.min(lerpSpeed, 1);
+            }
+            if (b.hitFlash > 0) b.hitFlash -= dt;
+            b.rotation += 1.5 * dt;
+            b.pulsePhase += dt * 2;
+        } else {
+            b.update(dt, player.x, player.y);
+        }
         
         if (b.hp <= 0 && (!isTeamMode || isHost)) {
             bosses.splice(i, 1);
@@ -2013,11 +2045,12 @@ function applyEnemyState(data) {
         newEIds.add(id);
         let e = eMap.get(id);
         if (e) {
-            e.x = x; e.y = y; e.hp = hp; e.maxHp = maxHp;
+            e._tx = x; e._ty = y; e.hp = hp; e.maxHp = maxHp;
         } else {
             e = new Enemy(x, y, 0);
             e.id = id; e.hp = hp; e.maxHp = maxHp;
             e.color = color; e.type = type;
+            e._tx = x; e._ty = y;
             if (radius) e.radius = radius;
         }
         newEnemies.push(e);
@@ -2045,10 +2078,11 @@ function applyEnemyState(data) {
         newBIds.add(id);
         let b = bMap.get(id);
         if (b) {
-            b.x = x; b.y = y; b.hp = hp; b.maxHp = maxHp;
+            b._tx = x; b._ty = y; b.hp = hp; b.maxHp = maxHp;
         } else {
             b = new Boss(x, y, 0);
             b.id = id; b.hp = hp; b.maxHp = maxHp; b.color = color;
+            b._tx = x; b._ty = y;
             if (radius) b.radius = radius;
         }
         newBosses.push(b);
@@ -2074,10 +2108,11 @@ function applyEnemyState(data) {
         newElIds.add(id);
         let el = elMap.get(id);
         if (el) {
-            el.x = x; el.y = y; el.hp = hp; el.maxHp = maxHp;
+            el._tx = x; el._ty = y; el.hp = hp; el.maxHp = maxHp;
         } else {
             el = new EliteEnemy(x, y, 0);
             el.id = id; el.hp = hp; el.maxHp = maxHp; el.color = color; el.name = name;
+            el._tx = x; el._ty = y;
             if (radius) el.radius = radius;
         }
         newElites.push(el);
