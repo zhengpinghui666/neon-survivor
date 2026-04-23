@@ -1,5 +1,9 @@
+let _bid=0;
+export function resetBossIdCounter(){_bid=0;}
+
 export class Boss {
     constructor(x, y, difficulty) {
+        this.id = ++_bid + 10000;
         this.x = x;
         this.y = y;
         this.radius = 40;

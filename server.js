@@ -188,6 +188,43 @@ wss.on('connection', (ws) => {
                 broadcast(room, { type: 'chat', playerId, name: playerName, text: msg.text });
                 break;
             }
+
+            // 房主广播敌人状态给所有队友
+            case 'enemy_state': {
+                const room = rooms.get(currentRoom);
+                if (!room || room.hostId !== playerId) return;
+                const data = JSON.stringify({ type: 'enemy_state', d: msg.d });
+                for (const [pid, player] of room.players) {
+                    if (pid !== playerId && player.ws.readyState === 1) {
+                        player.ws.send(data);
+                    }
+                }
+                break;
+            }
+
+            // 队友的伤害转发给房主
+            case 'player_hit': {
+                const room = rooms.get(currentRoom);
+                if (!room) return;
+                const host = room.players.get(room.hostId);
+                if (host && host.ws.readyState === 1) {
+                    host.ws.send(JSON.stringify({ type: 'player_hit', enemyId: msg.enemyId, damage: msg.damage, playerId }));
+                }
+                break;
+            }
+
+            // 房主广播伤害特效给所有人
+            case 'hit_effect': {
+                const room = rooms.get(currentRoom);
+                if (!room) return;
+                const data = JSON.stringify({ type: 'hit_effect', d: msg.d });
+                for (const [pid, player] of room.players) {
+                    if (pid !== playerId && player.ws.readyState === 1) {
+                        player.ws.send(data);
+                    }
+                }
+                break;
+            }
         }
     });
 

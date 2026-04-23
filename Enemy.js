@@ -7,8 +7,12 @@ const ENEMY_TYPES = [
       radiusBase: 12 },
 ];
 
+let _eid=0;
+export function resetEnemyIdCounter(){_eid=0;}
+
 export class Enemy {
     constructor(x, y, difficulty) {
+        this.id = ++_eid;
         this.x = x;
         this.y = y;
         

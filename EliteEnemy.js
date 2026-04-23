@@ -1,7 +1,11 @@
 // Elite Enemy - stronger variant that drops evolution cards
 
+let _elid=0;
+export function resetEliteIdCounter(){_elid=0;}
+
 export class EliteEnemy {
     constructor(x, y, surviveTime) {
+        this.id = ++_elid + 20000;
         this.x = x;
         this.y = y;
         this.isElite = true;

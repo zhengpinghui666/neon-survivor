@@ -1,19 +1,19 @@
 import './style.css'
 import { Player } from './Player.js';
-import { Enemy } from './Enemy.js';
+import { Enemy, resetEnemyIdCounter } from './Enemy.js';
 import { Projectile } from './Projectile.js';
 import { Particle } from './Particle.js';
 import { Gem } from './Gem.js';
 import { DamageNumber } from './DamageNumber.js';
 import { OrbitBlade, LightningChain, DamageAura, FireTrail, ExplosiveMine, PiercingShuriken } from './Weapons.js';
-import { Boss } from './Boss.js';
+import { Boss, resetBossIdCounter } from './Boss.js';
 import { Starfield, AmbientParticles, ScreenFlash, drawVignette, DeathRing, SparkParticle, BossDeathWave } from './VFX.js';
 import { Terrain, generateTerrain } from './Terrain.js';
 import { TreasureChest, MissionSystem } from './TreasureChest.js';
 import { VirtualJoystick } from './Joystick.js';
 import { BreakableCrate, DropEffect } from './BreakableCrate.js';
 import { WeaponEvolutionManager } from './WeaponEvolution.js';
-import { EliteEnemy } from './EliteEnemy.js';
+import { EliteEnemy, resetEliteIdCounter } from './EliteEnemy.js';
 import { MetaProgression, META_UPGRADES } from './MetaProgression.js';
 
 const canvas = document.getElementById('gameCanvas');
@@ -380,6 +380,20 @@ function drawNebulaLayer(w, h) {
 
 // ─── 通用敌人受击回调 ───
 function onEnemyHit(enemy, damage) {
+    // 组队模式 & 非房主: 发送伤害给房主，不本地处理
+    if (isTeamMode && !isHost && teamWs?.readyState === 1) {
+        let finalDamage = damage;
+        let isCrit = Math.random() < playerCritChance;
+        if (isCrit) finalDamage *= playerCritDamage;
+        teamWs.send(JSON.stringify({ type: 'player_hit', enemyId: enemy.id, damage: finalDamage }));
+        // 本地显示伤害数字（即时反馈）
+        damageNumbers.push(new DamageNumber(
+            enemy.x + (Math.random()-0.5)*10, enemy.y - enemy.radius,
+            Math.floor(finalDamage), isCrit ? '#ff003c' : '#00ddff'
+        ));
+        return;
+    }
+    
     let finalDamage = damage;
     let isCrit = Math.random() < playerCritChance;
     if (isCrit) finalDamage *= playerCritDamage;
@@ -463,8 +477,8 @@ function update(dt) {
         if (shakeDuration <= 0) shakeIntensity = 0;
     }
 
-    // ─ Boss 系统 ─
-    if (surviveTime >= nextBossTime) {
+    // ─ Boss 系统 ─ (组队模式：只有房主刷Boss)
+    if ((!isTeamMode || isHost) && surviveTime >= nextBossTime) {
         spawnBoss();
         nextBossTime += diff.bossInterval;
     }
@@ -477,9 +491,10 @@ function update(dt) {
         }
     }
 
-    // ─ 敌人刷?─
-    enemySpawnTimer -= dt;
-    if (enemySpawnTimer <= 0) {
+    // ─ 敌人刷新 ─ (组队模式：只有房主刷怪)
+    if (!isTeamMode || isHost) {
+      enemySpawnTimer -= dt;
+      if (enemySpawnTimer <= 0) {
         let batchSize = 1;
         const bt = diff.batchThresholds;
         if (surviveTime > bt[0]) batchSize = 2;
@@ -488,11 +503,13 @@ function update(dt) {
         if (surviveTime > bt[3]) batchSize = 5;
         for (let b = 0; b < batchSize; b++) spawnEnemy();
         enemySpawnTimer = Math.max(0.05, diff.spawnRateBase - (surviveTime * diff.spawnRateDecay));
+      }
     }
 
-    // Elite spawn
-    eliteSpawnTimer -= dt;
-    if (eliteSpawnTimer <= 0 && eliteEnemies.length < 3) {
+    // Elite spawn (组队模式：只有房主刷精英)
+    if (!isTeamMode || isHost) {
+      eliteSpawnTimer -= dt;
+      if (eliteSpawnTimer <= 0 && eliteEnemies.length < 3) {
         const ea = Math.random() * Math.PI * 2;
         const ed = Math.max(canvas.width, canvas.height) / 1.3;
         const elite = new EliteEnemy(
@@ -505,6 +522,7 @@ function update(dt) {
         eliteEnemies.push(elite);
         damageNumbers.push(new DamageNumber(player.x, player.y - 60, '精英来袭!', '#ffdd00'));
         eliteSpawnTimer = 45 + Math.random() * 15;
+      }
     }
 
     // ─ 基础武器 ─
@@ -737,10 +755,11 @@ function update(dt) {
         if (chests.length === 0) missionSystem.startNewMission(killCount);
     }
 
-    // ─ 敌人更新与玩家碰?─
+    // ─ 敌人更新与玩家碰撞 ─
     for (let i = enemies.length - 1; i >= 0; i--) {
         let e = enemies[i];
-        e.update(dt, player.x, player.y, terrains);
+        // 组队模式非房主: 不跑AI，位置由房主同步
+        if (!isTeamMode || isHost) e.update(dt, player.x, player.y, terrains);
         
         // 清理死亡敌人
         if (e.hp <= 0) {
@@ -769,7 +788,7 @@ function update(dt) {
     // ─ Elite enemy update ─
     for (let i = eliteEnemies.length - 1; i >= 0; i--) {
         let el = eliteEnemies[i];
-        el.update(dt, player.x, player.y, terrains);
+        if (!isTeamMode || isHost) el.update(dt, player.x, player.y, terrains);
 
         if (el.hp <= 0) {
             eliteEnemies.splice(i, 1);
@@ -819,7 +838,7 @@ function update(dt) {
     // ─ Boss 更新 ─
     for (let i = bosses.length - 1; i >= 0; i--) {
         let b = bosses[i];
-        b.update(dt, player.x, player.y);
+        if (!isTeamMode || isHost) b.update(dt, player.x, player.y);
         
         if (b.hp <= 0) {
             bosses.splice(i, 1);
@@ -1814,6 +1833,25 @@ function connectTeam(action, roomCode, playerName) {
             case 'peer_dead':
                 teamPeers.delete(msg.playerId);
                 break;
+
+            // 接收房主的敌人状态 (非房主客户端)
+            case 'enemy_state':
+                if (!isHost && isTeamMode) applyEnemyState(msg.d);
+                break;
+
+            // 房主接收队友的伤害
+            case 'player_hit':
+                if (isHost && isTeamMode) applyRemoteHit(msg.enemyId, msg.damage);
+                break;
+
+            // 接收伤害特效
+            case 'hit_effect':
+                if (!isHost && isTeamMode && msg.d) {
+                    for (const h of msg.d) {
+                        damageNumbers.push(new DamageNumber(h.x, h.y, String(h.dmg), h.c || '#fff'));
+                    }
+                }
+                break;
                 
             case 'error':
                 if (joinError) joinError.textContent = msg.msg;
@@ -1943,4 +1981,99 @@ setInterval(() => {
     }
 }, 100); // 10fps 同步
 
+// ═══ 房主: 广播敌人状态 ═══
+setInterval(() => {
+    if (!teamWs || teamWs.readyState !== 1 || !isHost || !isTeamMode || gameState !== 'PLAYING') return;
 
+    // 压缩格式: [id, x, y, hp, maxHp, type, color]
+    const eArr = enemies.map(e => [e.id, Math.round(e.x), Math.round(e.y), e.hp, e.maxHp, e.type || 'crawler', e.color]);
+    const bArr = bosses.map(b => [b.id, Math.round(b.x), Math.round(b.y), b.hp, b.maxHp, 'boss', b.color, b.radius]);
+    const elArr = eliteEnemies.map(el => [el.id, Math.round(el.x), Math.round(el.y), el.hp, el.maxHp, el.name || 'elite', el.color, el.radius]);
+
+    teamWs.send(JSON.stringify({
+        type: 'enemy_state',
+        d: { e: eArr, b: bArr, el: elArr }
+    }));
+}, 100);
+
+// ═══ 非房主: 接收并应用敌人状态 ═══
+function applyEnemyState(data) {
+    if (!data || isHost) return;
+
+    // 同步普通敌人
+    const eMap = new Map();
+    for (const e of enemies) eMap.set(e.id, e);
+    const newEnemies = [];
+    for (const [id, x, y, hp, maxHp, type, color] of (data.e || [])) {
+        let e = eMap.get(id);
+        if (e) {
+            e.x = x; e.y = y; e.hp = hp; e.maxHp = maxHp;
+        } else {
+            e = new Enemy(x, y, 0);
+            e.id = id; e.hp = hp; e.maxHp = maxHp; e.color = color;
+        }
+        newEnemies.push(e);
+    }
+    enemies = newEnemies;
+
+    // 同步Boss
+    const bMap = new Map();
+    for (const b of bosses) bMap.set(b.id, b);
+    const newBosses = [];
+    for (const [id, x, y, hp, maxHp, type, color, radius] of (data.b || [])) {
+        let b = bMap.get(id);
+        if (b) {
+            b.x = x; b.y = y; b.hp = hp; b.maxHp = maxHp;
+        } else {
+            b = new Boss(x, y, 0);
+            b.id = id; b.hp = hp; b.maxHp = maxHp; b.color = color;
+            if (radius) b.radius = radius;
+        }
+        newBosses.push(b);
+    }
+    bosses = newBosses;
+
+    // 同步精英
+    const elMap = new Map();
+    for (const el of eliteEnemies) elMap.set(el.id, el);
+    const newElites = [];
+    for (const [id, x, y, hp, maxHp, name, color, radius] of (data.el || [])) {
+        let el = elMap.get(id);
+        if (el) {
+            el.x = x; el.y = y; el.hp = hp; el.maxHp = maxHp;
+        } else {
+            el = new EliteEnemy(x, y, 0);
+            el.id = id; el.hp = hp; el.maxHp = maxHp; el.color = color; el.name = name;
+            if (radius) el.radius = radius;
+        }
+        newElites.push(el);
+    }
+    eliteEnemies = newElites;
+}
+
+// ═══ 房主: 处理队友的伤害 ═══
+function applyRemoteHit(enemyId, damage) {
+    if (!isHost) return;
+    const allTargets = [...enemies, ...bosses, ...eliteEnemies];
+    for (const t of allTargets) {
+        if (t.id === enemyId) {
+            t.hp -= damage;
+            t.hitFlash = 0.15;
+            damageNumbers.push(new DamageNumber(t.x, t.y, String(Math.round(damage)), '#00ddff'));
+            // 广播特效给其他人
+            if (teamWs?.readyState === 1) {
+                teamWs.send(JSON.stringify({
+                    type: 'hit_effect',
+                    d: [{ x: Math.round(t.x), y: Math.round(t.y), dmg: Math.round(damage), c: '#00ddff' }]
+                }));
+            }
+            break;
+        }
+    }
+}
+
+// ═══ 非房主: 发送伤害给房主 ═══
+// 重写 projectile 碰撞，非房主命中时发送给房主而不是直接扣血
+const origFireWeapon = fireWeapon;
+// 在 update 中，非房主的 projectile 碰撞需要发送 player_hit
+// 我们 hook 进 projectile 碰撞检测
