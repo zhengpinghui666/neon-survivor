@@ -210,5 +210,27 @@ export class Player {
         ctx.shadowBlur = 0;
         ctx.restore();
         ctx.globalAlpha = 1;
+        
+        // ── 工程师无人机渲染 ──
+        if (this.heroId === 'engineer') {
+            const droneCount = this._droneCount || 1;
+            for (let i = 0; i < droneCount; i++) {
+                const angle = (i / droneCount) * Math.PI * 2 + this.pulsePhase * 0.8;
+                const dx = Math.cos(angle) * 35;
+                const dy = Math.sin(angle) * 35;
+                ctx.beginPath();
+                ctx.arc(this.x + dx, this.y + dy, 4, 0, Math.PI * 2);
+                ctx.fillStyle = this.color || '#7BFFD6';
+                ctx.globalAlpha = 0.7;
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(this.x + dx, this.y + dy, 6, 0, Math.PI * 2);
+                ctx.strokeStyle = this.color || '#7BFFD6';
+                ctx.lineWidth = 0.5;
+                ctx.globalAlpha = 0.3;
+                ctx.stroke();
+                ctx.globalAlpha = 1;
+            }
+        }
     }
 }

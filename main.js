@@ -1311,7 +1311,10 @@ const ATTACK_RANGE = 400;
 
 function fireWeapon() {
     if (!player) return;
-    let allTargets = enemies.concat(bosses).filter(e => {
+    const hero = getHero(player.heroId || selectedHeroId);
+    const baseDmg = diff.baseDamage + playerDamageBonus;
+    
+    let allTargets = enemies.concat(bosses).concat(eliteEnemies).filter(e => {
         let d = (player.x-e.x)**2+(player.y-e.y)**2;
         return d <= ATTACK_RANGE * ATTACK_RANGE;
     }).sort((a, b) => {
@@ -1319,15 +1322,76 @@ function fireWeapon() {
         let db = (player.x-b.x)**2+(player.y-b.y)**2;
         return da - db;
     });
-    let targets = allTargets.slice(0, projectileCount);
-    if (targets.length === 0) return;
-    for (let target of targets) {
-        let dx = target.x - player.x;
-        let dy = target.y - player.y;
-        let dist = Math.sqrt(dx*dx + dy*dy);
-        if (dist > 0) {
-            dx /= dist; dy /= dist;
-            projectiles.push(new Projectile(player.x, player.y, dx, dy, 450, diff.baseDamage + playerDamageBonus, 7, '#bbf000'));
+    
+    if (hero.id === 'arcMage') {
+        // ── 电弧链：连锁闪电 ──
+        if (allTargets.length === 0) return;
+        const primary = allTargets[0];
+        const chainCount = 3 + Math.floor(projectileCount * 0.5);
+        const chainDmg = baseDmg * 0.7;
+        let chained = new Set();
+        let current = primary;
+        chained.add(current);
+        
+        // 画第一段从玩家到目标
+        const arc1 = new Projectile(player.x, player.y, 0, 0, 0, 0, 3, hero.color);
+        arc1.isArc = true;
+        arc1.arcTarget = { x: current.x, y: current.y };
+        arc1.lifetime = 0.15;
+        arc1.age = 0;
+        projectiles.push(arc1);
+        onEnemyHit(current, chainDmg);
+        createParticles(current.x, current.y, hero.color, 2);
+        
+        // 连锁跳跃
+        for (let i = 1; i < chainCount; i++) {
+            let nearest = null, nearDist = 150 * 150;
+            for (const t of allTargets) {
+                if (chained.has(t)) continue;
+                const d2 = (current.x-t.x)**2 + (current.y-t.y)**2;
+                if (d2 < nearDist) { nearest = t; nearDist = d2; }
+            }
+            if (!nearest) break;
+            const arc = new Projectile(current.x, current.y, 0, 0, 0, 0, 2, hero.color);
+            arc.isArc = true;
+            arc.arcTarget = { x: nearest.x, y: nearest.y };
+            arc.lifetime = 0.12;
+            arc.age = 0;
+            projectiles.push(arc);
+            onEnemyHit(nearest, chainDmg * (0.85 ** i));
+            createParticles(nearest.x, nearest.y, '#B38CFF', 1);
+            chained.add(nearest);
+            current = nearest;
+        }
+    } else if (hero.id === 'engineer') {
+        // ── 无人机：自动瞄准最近敌人射击 ──
+        if (allTargets.length === 0) return;
+        const droneCount = Math.max(1, projectileCount);
+        for (let i = 0; i < droneCount && i < allTargets.length; i++) {
+            const target = allTargets[i];
+            // 无人机从玩家周围固定轨道点射击
+            const orbitAngle = (i / droneCount) * Math.PI * 2 + surviveTime * 1.5;
+            const droneX = player.x + Math.cos(orbitAngle) * 35;
+            const droneY = player.y + Math.sin(orbitAngle) * 35;
+            const dx = target.x - droneX;
+            const dy = target.y - droneY;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            if (dist > 0) {
+                projectiles.push(new Projectile(droneX, droneY, dx/dist, dy/dist, 500, baseDmg * 0.6, 4, hero.color));
+            }
+        }
+    } else {
+        // ── 脉冲枪手：标准弹幕 ──
+        let targets = allTargets.slice(0, projectileCount);
+        if (targets.length === 0) return;
+        for (let target of targets) {
+            let dx = target.x - player.x;
+            let dy = target.y - player.y;
+            let dist = Math.sqrt(dx*dx + dy*dy);
+            if (dist > 0) {
+                dx /= dist; dy /= dist;
+                projectiles.push(new Projectile(player.x, player.y, dx, dy, 500, baseDmg, 6, hero.color));
+            }
         }
     }
 }
@@ -1646,8 +1710,22 @@ function triggerLevelUp() {
             upgrades.push({ name: opt.name, desc: opt.desc, icon: SVG.heal, level: 0, maxLevel: 0, isNew: false, action: () => { player.hp = Math.min(player.hp + 30, player.maxHp); } });
         }
     }
-    upgrades.push({ name: '\u6b66\u5668\u8d85\u9891', desc: '\u5c04\u51fb\u9891\u7387\u63d0\u5347', icon: SVG.bolt, level: 0, maxLevel: 0, isNew: false, action: () => { currentWeaponCooldown *= 0.82; } });
-    upgrades.push({ name: '\u591a\u91cd\u5c04\u51fb', desc: '\u5f39\u4e38+1', icon: SVG.multishot, level: 0, maxLevel: 0, isNew: false, action: () => { projectileCount += 1; } });
+    upgrades.push({ name: '\u6b66\u5668\u8d85\u9891', desc: '\u5c04\u51fb\u9891\u7387\u63d0\u5347', icon: SVG.bolt, level: 0, maxLevel: 0, isNew: false, tag: '\u653b\u901f', tagColor: '#88ccff', action: () => { currentWeaponCooldown *= 0.82; } });
+    // \u82f1\u96c4\u4e13\u5c5e\u5347\u7ea7
+    const hero = getHero(player.heroId || selectedHeroId);
+    if (hero.id === 'ranger') {
+        upgrades.push({ name: '\u591a\u91cd\u5f39\u5e55', desc: '\u5f39\u4e38+1', icon: SVG.multishot, level: 0, maxLevel: 0, isNew: false, tag: '\u66b4\u51fb', tagColor: '#ff9c7a', action: () => { projectileCount += 1; } });
+        if (playerLevel >= 3) upgrades.push({ name: '\u805a\u7126\u5c04\u51fb', desc: '\u8fde\u7eed\u547d\u4e2d+15%\u4f24\u5bb3', icon: SVG.damage, level: 0, maxLevel: 0, isNew: false, tag: '\u4e13\u5c5e', tagColor: '#26E7FF', action: () => { playerDamageBonus += 8; } });
+        if (playerLevel >= 5) upgrades.push({ name: '\u7a7f\u900f\u5f39', desc: '\u5f39\u5e55\u7a7f\u900f+1\u4e2a\u76ee\u6807', icon: SVG.blade, level: 0, maxLevel: 0, isNew: false, tag: '\u7a7f\u900f', tagColor: '#26E7FF', action: () => { playerDamageBonus += 5; projectileCount += 1; } });
+    } else if (hero.id === 'arcMage') {
+        upgrades.push({ name: '\u94fe\u6570\u589e\u52a0', desc: '\u8fde\u9501\u8df3\u8dc3+2', icon: SVG.lightning, level: 0, maxLevel: 0, isNew: false, tag: '\u611f\u7535', tagColor: '#B38CFF', action: () => { projectileCount += 2; } });
+        if (playerLevel >= 3) upgrades.push({ name: '\u611f\u7535\u6269\u6563', desc: '\u51fb\u6740\u611f\u7535\u76ee\u6807\u9020\u6210\u8303\u56f4\u4f24\u5bb3', icon: SVG.aura, level: 0, maxLevel: 0, isNew: false, tag: '\u4e13\u5c5e', tagColor: '#B38CFF', action: () => { playerDamageBonus += 6; } });
+        if (playerLevel >= 5) upgrades.push({ name: '\u96f7\u66b4\u9886\u57df', desc: '\u8fde\u9501\u8303\u56f4+30%\uff0c\u4f24\u5bb3+10%', icon: SVG.lightning, level: 0, maxLevel: 0, isNew: false, tag: '\u8303\u56f4', tagColor: '#B38CFF', action: () => { playerDamageBonus += 8; currentWeaponCooldown *= 0.9; } });
+    } else if (hero.id === 'engineer') {
+        upgrades.push({ name: '\u65e0\u4eba\u673a+1', desc: '\u90e8\u7f72\u989d\u5916\u65e0\u4eba\u673a', icon: SVG.shuriken, level: 0, maxLevel: 0, isNew: false, tag: '\u53ec\u5524', tagColor: '#7BFFD6', action: () => { projectileCount += 1; if (player) player._droneCount = (player._droneCount || 1) + 1; } });
+        if (playerLevel >= 3) upgrades.push({ name: '\u534f\u540c\u589e\u5e45', desc: '\u6bcf\u4e2a\u65e0\u4eba\u673a\u63d0\u53475%\u653b\u901f', icon: SVG.cooldown, level: 0, maxLevel: 0, isNew: false, tag: '\u4e13\u5c5e', tagColor: '#7BFFD6', action: () => { const dc = player._droneCount || 1; currentWeaponCooldown *= (1 - 0.05 * dc); } });
+        if (playerLevel >= 5) upgrades.push({ name: '\u65e0\u4eba\u673a\u519b\u56e2', desc: '\u65e0\u4eba\u673a+2\uff0c\u653b\u51fb\u540c\u6b65', icon: SVG.shuriken, level: 0, maxLevel: 0, isNew: false, tag: '\u53ec\u5524', tagColor: '#7BFFD6', action: () => { projectileCount += 2; if (player) player._droneCount = (player._droneCount || 1) + 2; } });
+    }
     for (let i = upgrades.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [upgrades[i], upgrades[j]] = [upgrades[j], upgrades[i]]; }
     upgrades.sort((a, b) => (b.isNew ? 1 : 0) - (a.isNew ? 1 : 0));
     let selected = upgrades.slice(0, 3);
@@ -1657,7 +1735,8 @@ function triggerLevelUp() {
         card.style.animationDelay = index * 0.1 + 's';
         let stars = '';
         if (upg.maxLevel > 0) { for (let i = 0; i < upg.maxLevel; i++) stars += i < upg.level ? '\u2605' : '\u2606'; }
-        card.innerHTML = '<div class="card-icon">' + upg.icon + '</div><h3>' + upg.name + '</h3>' + (stars ? '<div class="card-level">' + stars + '</div>' : '') + '<p>' + upg.desc + '</p>';
+        const tagHtml = upg.tag ? '<span class="card-tag" style="border-color:' + (upg.tagColor||'#888') + ';color:' + (upg.tagColor||'#888') + '">' + upg.tag + '</span>' : '';
+        card.innerHTML = '<div class="card-icon">' + upg.icon + '</div><h3>' + upg.name + '</h3>' + tagHtml + (stars ? '<div class="card-level">' + stars + '</div>' : '') + '<p>' + upg.desc + '</p>';
         card.onclick = () => { upg.action(); resumeGame(); };
         container.appendChild(card);
     });
@@ -1739,7 +1818,11 @@ function startGame() {
   
   playerXp = 0; playerLevel = 1; nextLevelXp = diff.levelXpBase;
   playerMagnetRadius = 80 + metaBonus.magnet; playerDamageBonus = metaBonus.damage;
-  currentWeaponCooldown = 1.0; projectileCount = 1;
+  // 英雄武器冷却
+  const heroCooldowns = { ranger: 0.8, arcMage: 1.3, engineer: 0.6 };
+  currentWeaponCooldown = heroCooldowns[hero.id] || 1.0;
+  projectileCount = 1;
+  if (hero.id === 'engineer') { player._droneCount = 1; }
   killCount = 0; comboCount = 0; comboTimer = 0; xpMultiplier = 1; lastComboTier = -1;
   currentWave = 1; waveTimer = WAVE_DURATION; waveResting = false; waveAnnounceTimer = 2.0;
   achievementQueue.length = 0; achievementShowTimer = 0; unlockedAchievements.clear();

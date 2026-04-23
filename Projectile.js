@@ -17,6 +17,12 @@ export class Projectile {
     }
 
     update(dt) {
+        // Arc projectile support
+        if (this.isArc) {
+            this.age = (this.age || 0) + dt;
+            if (this.age >= (this.lifetime || 0.15)) this.lifeTime = 0;
+            return;
+        }
         this.x += this.dx * this.speed * dt;
         this.y += this.dy * this.speed * dt;
         this.lifeTime -= dt;
@@ -37,6 +43,35 @@ export class Projectile {
     }
 
     draw(ctx) {
+        // ── 电弧渲染 ──
+        if (this.isArc && this.arcTarget) {
+            const tx = this.arcTarget.x, ty = this.arcTarget.y;
+            const segments = 6;
+            const dx = tx - this.x, dy = ty - this.y;
+            const len = Math.sqrt(dx*dx + dy*dy);
+            const nx = -dy/len, ny = dx/len;
+            ctx.beginPath();
+            ctx.moveTo(this.x, this.y);
+            for (let i = 1; i < segments; i++) {
+                const t = i / segments;
+                const mx = this.x + dx * t + nx * (Math.random() - 0.5) * 14;
+                const my = this.y + dy * t + ny * (Math.random() - 0.5) * 14;
+                ctx.lineTo(mx, my);
+            }
+            ctx.lineTo(tx, ty);
+            const alpha = 1 - (this.age || 0) / (this.lifetime || 0.15);
+            ctx.strokeStyle = this.color;
+            ctx.lineWidth = this.radius + 1;
+            ctx.globalAlpha = alpha * 0.8;
+            ctx.stroke();
+            // 内层亮线
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 1;
+            ctx.globalAlpha = alpha * 0.6;
+            ctx.stroke();
+            ctx.globalAlpha = 1;
+            return;
+        }
         // ── 拖尾渐变 ──
         if (this.trail.length > 1) {
             for (let i = 1; i < this.trail.length; i++) {
