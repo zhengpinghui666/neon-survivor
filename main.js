@@ -1487,36 +1487,61 @@ function draw(ctx) {
    damageNumbers.forEach(d => d.draw(ctx));
    if (player) player.draw(ctx);
 
-   // 绘制队友
+   // 绘制队友（带插值）
    if (isTeamMode && player) {
-       const PEER_COLORS = ['#00ddff', '#ff66aa', '#66ff44', '#ffaa00'];
-       let ci = 0;
+       const now = performance.now();
        for (const [pid, peer] of teamPeers) {
            if (!peer.x) continue;
-           const color = PEER_COLORS[ci % PEER_COLORS.length];
-           const sx = peer.x - cameraX;
-           const sy = peer.y - cameraY;
+           // 位置插值
+           const elapsed = (now - (peer._lastUpdate || now)) / 50; // 50ms tick
+           const t = Math.min(elapsed, 1);
+           const drawX = peer._prevX + (peer.x - peer._prevX) * t;
+           const drawY = peer._prevY + (peer.y - peer._prevY) * t;
+           const sx = drawX - cameraX;
+           const sy = drawY - cameraY;
+           const pColor = peer.color || '#00ddff';
+           const angle = peer.angle || 0;
+           
            ctx.save();
-           ctx.globalAlpha = 0.7;
+           ctx.globalAlpha = 0.75;
+           ctx.translate(sx, sy);
+           ctx.rotate(angle - Math.PI / 2);
+           // 简化飞船形状
+           const r = 12;
            ctx.beginPath();
-           ctx.arc(sx, sy, 12, 0, Math.PI * 2);
-           ctx.fillStyle = color;
+           ctx.moveTo(0, -r);
+           ctx.lineTo(-r * 0.7, r * 0.6);
+           ctx.lineTo(0, r * 0.3);
+           ctx.lineTo(r * 0.7, r * 0.6);
+           ctx.closePath();
+           ctx.fillStyle = pColor;
            ctx.fill();
-           ctx.strokeStyle = '#fff';
-           ctx.lineWidth = 1.5;
+           ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+           ctx.lineWidth = 1;
            ctx.stroke();
-           ctx.font = '10px Outfit';
-           ctx.textAlign = 'center';
-           ctx.fillStyle = color;
-           ctx.fillText(peer.name || '队友', sx, sy - 18);
-           if (peer.hp && peer.maxHp) {
-               ctx.fillStyle = 'rgba(0,0,0,0.5)';
-               ctx.fillRect(sx - 12, sy + 16, 24, 3);
-               ctx.fillStyle = color;
-               ctx.fillRect(sx - 12, sy + 16, 24 * (peer.hp / peer.maxHp), 3);
+           // 引擎光
+           if (peer.moving) {
+               ctx.beginPath();
+               ctx.arc(0, r * 0.7, 3, 0, Math.PI * 2);
+               ctx.fillStyle = '#fff';
+               ctx.globalAlpha = 0.4 + Math.sin(now * 0.01) * 0.2;
+               ctx.fill();
            }
            ctx.restore();
-           ci++;
+           // 名字 + 血条
+           ctx.save();
+           ctx.globalAlpha = 0.6;
+           ctx.font = '10px Outfit';
+           ctx.textAlign = 'center';
+           ctx.fillStyle = pColor;
+           ctx.fillText(peer.name || '队友', sx, sy - 20);
+           if (peer.hp && peer.maxHp) {
+               ctx.fillStyle = 'rgba(0,0,0,0.5)';
+               ctx.fillRect(sx - 14, sy + 18, 28, 3);
+               ctx.fillStyle = peer.hp / peer.maxHp > 0.3 ? pColor : '#ff3366';
+               ctx.fillRect(sx - 14, sy + 18, 28 * (peer.hp / peer.maxHp), 3);
+           }
+           ctx.restore();
        }
    }
 
@@ -2152,10 +2177,19 @@ function connectTeam(action, roomCode, playerName) {
                 break;
                 
             case 'peer_state':
-                teamPeers.set(msg.playerId, { 
-                    name: msg.name, 
-                    ...msg.state 
-                });
+                {
+                    const prev = teamPeers.get(msg.playerId);
+                    const st = msg.state;
+                    teamPeers.set(msg.playerId, {
+                        name: msg.name,
+                        ...st,
+                        // 插值用：记录上一次位置
+                        _prevX: prev?.x ?? st.x,
+                        _prevY: prev?.y ?? st.y,
+                        _lerpT: 0,
+                        _lastUpdate: performance.now(),
+                    });
+                }
                 break;
                 
             case 'peer_dead':
@@ -2303,12 +2337,22 @@ if (copyCodeBtn) {
 // 定期同步自己的状态给队友
 setInterval(() => {
     if (teamWs?.readyState === 1 && gameState === 'PLAYING' && player && isTeamMode) {
+        const hero = getHero(player.heroId || selectedHeroId);
         teamWs.send(JSON.stringify({
             type: 'player_state',
-            state: { x: player.x, y: player.y, hp: player.hp, maxHp: player.maxHp }
+            state: {
+                x: Math.round(player.x),
+                y: Math.round(player.y),
+                hp: player.hp,
+                maxHp: player.maxHp,
+                angle: +(player.facingAngle || 0).toFixed(2),
+                color: hero.color,
+                heroId: hero.id,
+                moving: player.isMoving ? 1 : 0,
+            }
         }));
     }
-}, 100); // 10fps 同步
+}, 50); // 20fps 同步（从100ms改为50ms）
 
 // ═══ 房主: 广播敌人状态 ═══
 setInterval(() => {
@@ -2353,7 +2397,7 @@ function applyEnemyState(data) {
         }
         newEnemies.push(e);
     }
-    // 检测死掉的敌人 - 播放死亡特效
+    // 检测死掉的敌人 - 播放死亡特效 + 掉落经验
     for (const oid of oldEIds) {
         if (!newEIds.has(oid)) {
             const dead = eMap.get(oid);
@@ -2362,6 +2406,15 @@ function applyEnemyState(data) {
                 deathRings.push(new DeathRing(dead.x, dead.y, dead.color));
                 for (let s = 0; s < 8; s++) sparkParticles.push(new SparkParticle(dead.x, dead.y, dead.color));
                 screenFlash.trigger(dead.color, 0.06);
+                // 非房主也掉经验宝石
+                let dropCount = 2 + Math.floor(Math.random() * 2);
+                for (let k = 0; k < dropCount; k++) {
+                    let gx = dead.x + (Math.random()-0.5)*40;
+                    let gy = dead.y + (Math.random()-0.5)*40;
+                    if (gems.length < 500) gems.push(new Gem(gx, gy));
+                }
+                killCount++;
+                if (killCountText) killCountText.innerText = killCount;
             }
         }
     }
@@ -2392,6 +2445,16 @@ function applyEnemyState(data) {
                 bossDeathWaves.push(new BossDeathWave(dead.x, dead.y));
                 screenFlash.trigger('#ffcc00', 0.4);
                 for (let s = 0; s < 30; s++) sparkParticles.push(new SparkParticle(dead.x, dead.y, '#ffcc00'));
+                // Boss杀给经验
+                for (let k = 0; k < 10; k++) {
+                    let gx = dead.x + (Math.random()-0.5)*60;
+                    let gy = dead.y + (Math.random()-0.5)*60;
+                    if (gems.length < 500) gems.push(new Gem(gx, gy));
+                }
+                killCount++;
+                // Boss杀给一次升级
+                const fullLevelXp = nextLevelXp - playerXp;
+                if (fullLevelXp > 0) addXp(fullLevelXp);
             }
         }
     }
@@ -2422,6 +2485,13 @@ function applyEnemyState(data) {
                 deathRings.push(new DeathRing(dead.x, dead.y, dead.color));
                 for (let s = 0; s < 15; s++) sparkParticles.push(new SparkParticle(dead.x, dead.y, '#ffdd00'));
                 screenFlash.trigger('#ffdd00', 0.2);
+                // 精英掉经验
+                for (let k = 0; k < 5; k++) {
+                    let gx = dead.x + (Math.random()-0.5)*50;
+                    let gy = dead.y + (Math.random()-0.5)*50;
+                    if (gems.length < 500) gems.push(new Gem(gx, gy));
+                }
+                killCount++;
             }
         }
     }
