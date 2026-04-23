@@ -1296,12 +1296,7 @@ function spawnEnemy() {
 function spawnBoss() {
     if (!player) return;
     
-    // Boss 预警
-    if (bossWarning) {
-        bossWarning.classList.remove('hidden');
-        bossWarning.innerText = '★ BOSS 来袭 ★';
-        bossWarningTimer = 3.0;
-    }
+    // Boss 预警已移除
     
     const angle = Math.random() * Math.PI * 2;
     const radius = Math.max(canvas.width, canvas.height) / 1.2;
@@ -1527,22 +1522,7 @@ function draw(ctx) {
 
    ctx.restore();
 
-   // 波次标题 (HUD overlay, not affected by camera)
-   if (waveAnnounceTimer > 0) {
-       const alpha = Math.min(1, waveAnnounceTimer / 0.5);
-       ctx.save();
-       ctx.globalAlpha = alpha;
-       ctx.font = 'bold 28px Outfit';
-       ctx.textAlign = 'center';
-       if (waveResting) {
-           ctx.fillStyle = '#44ff88';
-           ctx.fillText('第 ' + (currentWave) + ' 波 完成！', canvas.width / 2, 80);
-       } else {
-           ctx.fillStyle = '#ff6644';
-           ctx.fillText('— 第 ' + currentWave + ' 波 —', canvas.width / 2, 80);
-       }
-       ctx.restore();
-   }
+   // 波次标题已移除
 
    // 敌人方向指示器
    if (player) {
