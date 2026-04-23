@@ -78,6 +78,11 @@ function readBody(req) {
 const distDir = join(__dirname, 'dist');
 const httpServer = createServer(async (req, res) => {
     // ─── API 路由 ───
+    if (req.url === '/api/ping') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ status: 'ok', time: Date.now() }));
+        return;
+    }
     if (req.method === 'POST' && req.url === '/api/login') {
         const data = await readBody(req);
         if (!data?.phone || !/^1\d{10}$/.test(data.phone)) {
@@ -390,5 +395,13 @@ function broadcastRoomState(room) {
         console.log(`   本地:     http://localhost:${PORT}`);
         console.log(`   数据库:   ${MONGO_URI ? 'MongoDB Atlas ✅' : '内存模式 (数据不持久)'}`);
         console.log(`   等待玩家连接...\n`);
+
+        // ── 保活心跳：每14分钟自ping，防止 Render 免费服务休眠 ──
+        const KEEP_ALIVE_URL = process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
+        setInterval(() => {
+            fetch(KEEP_ALIVE_URL + '/api/ping')
+                .then(() => console.log(`[keep-alive] ping OK @ ${new Date().toLocaleTimeString()}`))
+                .catch(() => {});
+        }, 14 * 60 * 1000); // 14分钟
     });
 })();
