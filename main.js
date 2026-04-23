@@ -523,16 +523,23 @@ function onEnemyHit(enemy, damage) {
     if (isCrit) finalDamage *= playerCritDamage;
     
     enemy.hp -= finalDamage;
-    enemy.hitFlash = 0.08;
+    enemy.hitFlash = isCrit ? 0.15 : 0.08;
+    
+    // 英雄色伤害数字
+    const hero = getHero(player?.heroId || selectedHeroId);
+    const dmgColor = isCrit ? '#ffcc00' : (hero.color || '#bbf000');
     damageNumbers.push(new DamageNumber(
         enemy.x + (Math.random()-0.5)*10,
         enemy.y - enemy.radius,
         Math.floor(finalDamage),
-        isCrit ? '#ff003c' : '#bbf000'
+        dmgColor
     ));
-    createParticles(enemy.x, enemy.y, enemy.color, 3);
+    createParticles(enemy.x, enemy.y, hero.color || enemy.color, isCrit ? 5 : 3);
     // VFX 火花粒子
-    for (let i = 0; i < 3; i++) sparkParticles.push(new SparkParticle(enemy.x, enemy.y, enemy.color));
+    const sparkCount = isCrit ? 6 : 3;
+    for (let i = 0; i < sparkCount; i++) sparkParticles.push(new SparkParticle(enemy.x, enemy.y, isCrit ? '#ffcc00' : enemy.color));
+    // 暴击微震
+    if (isCrit) applyShake(2, 0.06);
 }
 
 // ─── 主更?───
