@@ -1825,14 +1825,41 @@ pauseBtn.addEventListener('click', togglePause);
 resumeBtn.addEventListener('click', resumeFromPause);
 quitBtn.addEventListener('click', quitToMenu);
 
+// 退出账号
+const logoutBtn = document.getElementById('logout-btn');
+if (logoutBtn) {
+    logoutBtn.addEventListener('click', () => {
+        // 先退出游戏
+        gameState = 'MENU';
+        pauseMenu.classList.remove('active');
+        pauseMenu.classList.add('hidden');
+        pauseBtn.classList.add('hidden');
+        hud.classList.remove('active');
+        hud.classList.add('hidden');
+        mainMenu.classList.remove('hidden');
+        mainMenu.classList.add('active');
+        if (teamWs) { teamWs.close(); teamWs = null; }
+        isTeamMode = false; teamPeers.clear();
+        clearTeamSession();
+        // 清除登录数据
+        currentUser = null;
+        localStorage.removeItem('neon_phone');
+        // 回到登录页
+        mainMenu.classList.remove('active');
+        mainMenu.classList.add('hidden');
+        if (loginScreen) { loginScreen.classList.remove('hidden'); loginScreen.classList.add('active'); }
+    });
+}
+
 window.addEventListener('keydown', (e) => {
-  // prevent space on buttons
-  if (e.key === ' ' && e.target.tagName === 'BUTTON') {
-    e.preventDefault();
-    return;
-  }
-  if (e.key === 'p' || e.key === 'P') {
+  // 空格键触发设置
+  if (e.key === ' ') {
+    if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT') {
+      e.preventDefault();
+      return;
+    }
     if (gameState === 'PLAYING' || gameState === 'PAUSED') {
+      e.preventDefault();
       togglePause();
     }
   }

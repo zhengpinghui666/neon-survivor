@@ -104,11 +104,10 @@
           </div>
         </div>
 
-        <!-- 暂停按钮 -->
-        <button id="pause-btn" class="pause-btn hidden" aria-label="暂停">
-          <svg viewBox="0 0 24 24" width="22" height="22">
-            <rect x="5" y="4" width="5" height="16" rx="1" fill="currentColor"/>
-            <rect x="14" y="4" width="5" height="16" rx="1" fill="currentColor"/>
+        <!-- 设置按钮 -->
+        <button id="pause-btn" class="pause-btn hidden" aria-label="设置">
+          <svg viewBox="0 0 24 24" width="20" height="20">
+            <path d="M12 15.5A3.5 3.5 0 118.5 12 3.5 3.5 0 0112 15.5zm7.43-2.53c.04-.32.07-.64.07-.97s-.03-.66-.07-.97l2.11-1.65a.5.5 0 00.12-.64l-2-3.46a.5.5 0 00-.61-.22l-2.49 1a7.3 7.3 0 00-1.67-.97l-.38-2.65A.49.49 0 0014 2h-4a.49.49 0 00-.49.42l-.38 2.65a7.3 7.3 0 00-1.67.97l-2.49-1a.5.5 0 00-.61.22l-2 3.46a.49.49 0 00.12.64l2.11 1.65c-.04.32-.07.65-.07.97s.03.66.07.97l-2.11 1.65a.5.5 0 00-.12.64l2 3.46a.5.5 0 00.61.22l2.49-1c.52.38 1.08.7 1.67.97l.38 2.65c.05.24.26.42.49.42h4c.24 0 .44-.18.49-.42l.38-2.65a7.3 7.3 0 001.67-.97l2.49 1a.5.5 0 00.61-.22l2-3.46a.49.49 0 00-.12-.64l-2.11-1.65z" fill="currentColor"/>
           </svg>
         </button>
         
@@ -174,14 +173,14 @@
       <div id="pause-menu" class="screen hidden glassmorphism">
         <div class="pause-header">
           <svg viewBox="0 0 24 24" width="40" height="40">
-            <rect x="5" y="4" width="5" height="16" rx="1" fill="#00f0ff"/>
-            <rect x="14" y="4" width="5" height="16" rx="1" fill="#00f0ff"/>
+            <path d="M12 15.5A3.5 3.5 0 118.5 12 3.5 3.5 0 0112 15.5zm7.43-2.53c.04-.32.07-.64.07-.97s-.03-.66-.07-.97l2.11-1.65a.5.5 0 00.12-.64l-2-3.46a.5.5 0 00-.61-.22l-2.49 1a7.3 7.3 0 00-1.67-.97l-.38-2.65A.49.49 0 0014 2h-4a.49.49 0 00-.49.42l-.38 2.65a7.3 7.3 0 00-1.67.97l-2.49-1a.5.5 0 00-.61.22l-2 3.46a.49.49 0 00.12.64l2.11 1.65c-.04.32-.07.65-.07.97s.03.66.07.97l-2.11 1.65a.5.5 0 00-.12.64l2 3.46a.5.5 0 00.61.22l2.49-1c.52.38 1.08.7 1.67.97l.38 2.65c.05.24.26.42.49.42h4c.24 0 .44-.18.49-.42l.38-2.65a7.3 7.3 0 001.67-.97l2.49 1a.5.5 0 00.61-.22l2-3.46a.49.49 0 00-.12-.64l-2.11-1.65z" fill="#00f0ff"/>
           </svg>
         </div>
-        <h2 class="text-accent">系统暂停</h2>
-        <p style="color:#888;margin-bottom:1.5rem;font-size:0.9rem">按 P 或点击继续</p>
+        <h2 class="text-accent">设 置</h2>
+        <p style="color:#888;margin-bottom:1.5rem;font-size:0.9rem">按空格键或点击继续</p>
         <button id="resume-btn" class="glow-on-hover" style="margin-bottom:0.8rem">继续游戏</button>
-        <button id="quit-btn" class="glow-on-hover quit-btn">返回主页</button>
+        <button id="quit-btn" class="glow-on-hover quit-btn" style="margin-bottom:0.8rem">返回主页</button>
+        <button id="logout-btn" class="glow-on-hover" style="background:rgba(255,0,60,0.15);border-color:rgba(255,0,60,0.3);color:#ff4466;font-size:0.85rem">退出账号</button>
       </div>
 
       <!-- 游戏结束 -->
