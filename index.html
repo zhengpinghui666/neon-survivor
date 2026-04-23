@@ -13,8 +13,28 @@
     <canvas id="gameCanvas"></canvas>
 
     <div id="ui-layer">
+      <!-- 登录页 -->
+      <div id="login-screen" class="screen active">
+        <div class="menu-content">
+          <h1 class="game-title" style="font-size:2rem;margin-bottom:8px">⚡ 霓虹幸存者</h1>
+          <p style="color:rgba(255,255,255,0.5);margin-bottom:24px;font-size:0.85rem">NEON SURVIVOR</p>
+          <div class="login-box">
+            <div class="login-field">
+              <label for="login-phone" style="color:rgba(255,255,255,0.6);font-size:0.8rem;margin-bottom:4px;display:block">手机号登录</label>
+              <input type="tel" id="login-phone" maxlength="11" placeholder="输入手机号" 
+                style="width:100%;padding:12px 16px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:8px;color:#fff;font-size:1rem;outline:none;text-align:center;letter-spacing:2px" />
+            </div>
+            <button id="login-btn" class="menu-btn" style="margin-top:16px;width:100%">
+              <span>🚀 进入游戏</span>
+            </button>
+            <div id="login-error" style="color:#ff4466;font-size:0.8rem;margin-top:8px;min-height:20px"></div>
+            <div id="login-info" style="color:rgba(255,255,255,0.3);font-size:0.7rem;margin-top:12px">无需验证码，手机号即账号</div>
+          </div>
+        </div>
+      </div>
+
       <!-- 主菜单 -->
-      <div id="main-menu" class="screen active">
+      <div id="main-menu" class="screen hidden">
         <div class="menu-content">
           <div class="title-deco">
             <div class="title-line left"></div>

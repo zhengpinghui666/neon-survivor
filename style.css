@@ -63,6 +63,23 @@ body {
   transform: scale(1);
 }
 
+/* ─────── 登录框 ─────── */
+.login-box {
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  padding: 28px 24px;
+  width: min(320px, 85vw);
+}
+.login-box input:focus {
+  border-color: var(--accent-color);
+  box-shadow: 0 0 12px rgba(0, 240, 255, 0.2);
+}
+#login-screen {
+  z-index: 50;
+}
+
 /* ─────── 玻璃拟态 ─────── */
 .glassmorphism {
   background: var(--glass-bg);

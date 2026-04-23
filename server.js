@@ -2,7 +2,7 @@
 // 支持房间创建/加入、玩家状态同步
 
 import { createServer } from 'http';
-import { readFileSync, existsSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join, extname } from 'path';
 import { WebSocketServer } from 'ws';
 import { fileURLToPath } from 'url';
@@ -20,16 +20,97 @@ const MIME = {
     '.ico': 'image/x-icon', '.webp': 'image/webp',
 };
 
-// 静态文件服务 (serve dist/)
+// ═══ 用户数据管理 ═══
+const USERS_FILE = join(__dirname, 'users.json');
+let users = new Map(); // phone -> { phone, gold, upgrades, stats, lastLogin }
+
+// 加载用户数据
+function loadUsers() {
+    try {
+        if (existsSync(USERS_FILE)) {
+            const data = JSON.parse(readFileSync(USERS_FILE, 'utf8'));
+            users = new Map(Object.entries(data));
+            console.log(`📦 已加载 ${users.size} 个用户`);
+        }
+    } catch(e) { console.error('加载用户数据失败:', e.message); }
+}
+
+// 保存用户数据
+function saveUsers() {
+    try {
+        const obj = Object.fromEntries(users);
+        writeFileSync(USERS_FILE, JSON.stringify(obj, null, 2));
+    } catch(e) { console.error('保存用户数据失败:', e.message); }
+}
+
+// 定期保存
+setInterval(saveUsers, 30000); // 每30秒
+loadUsers();
+
+// 读取POST body
+function readBody(req) {
+    return new Promise((resolve) => {
+        let body = '';
+        req.on('data', chunk => body += chunk);
+        req.on('end', () => {
+            try { resolve(JSON.parse(body)); }
+            catch(e) { resolve(null); }
+        });
+    });
+}
+
+// 静态文件服务 + API
 const distDir = join(__dirname, 'dist');
-const httpServer = createServer((req, res) => {
+const httpServer = createServer(async (req, res) => {
+    // ─── API 路由 ───
+    if (req.method === 'POST' && req.url === '/api/login') {
+        const data = await readBody(req);
+        if (!data?.phone || !/^1\d{10}$/.test(data.phone)) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: '请输入有效的手机号' }));
+            return;
+        }
+        let user = users.get(data.phone);
+        if (!user) {
+            user = { phone: data.phone, gold: 0, upgrades: {}, stats: { totalKills: 0, bestTime: 0, gamesPlayed: 0 }, createdAt: Date.now() };
+            users.set(data.phone, user);
+            console.log(`🆕 新用户注册: ${data.phone}`);
+        }
+        user.lastLogin = Date.now();
+        saveUsers();
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, user }));
+        return;
+    }
+
+    if (req.method === 'POST' && req.url === '/api/save') {
+        const data = await readBody(req);
+        if (!data?.phone) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: '缺少手机号' }));
+            return;
+        }
+        let user = users.get(data.phone);
+        if (!user) {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: '用户不存在' }));
+            return;
+        }
+        if (data.gold !== undefined) user.gold = data.gold;
+        if (data.upgrades) user.upgrades = data.upgrades;
+        if (data.stats) user.stats = { ...user.stats, ...data.stats };
+        saveUsers();
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, user }));
+        return;
+    }
+
+    // ─── 静态文件 ───
     let url = req.url === '/' ? '/index.html' : req.url;
-    // 去掉查询参数
     url = url.split('?')[0];
     const filePath = join(distDir, url);
     
     if (!existsSync(filePath)) {
-        // SPA fallback
         const indexPath = join(distDir, 'index.html');
         if (existsSync(indexPath)) {
             res.writeHead(200, { 'Content-Type': 'text/html' });

@@ -66,6 +66,112 @@ const metaBackBtn = document.getElementById('meta-back-btn');
 const goldDisplay = document.getElementById('gold-display');
 const metaGoldDisplay = document.getElementById('meta-gold-display');
 
+// ═══ 登录系统 ═══
+const loginScreen = document.getElementById('login-screen');
+const loginPhone = document.getElementById('login-phone');
+const loginBtn = document.getElementById('login-btn');
+const loginError = document.getElementById('login-error');
+let currentUser = null; // { phone, gold, upgrades, stats }
+
+// 自动填充已保存的手机号
+const savedPhone = localStorage.getItem('neon_phone');
+if (savedPhone && loginPhone) loginPhone.value = savedPhone;
+
+// 自动登录
+if (savedPhone) {
+    autoLogin(savedPhone);
+}
+
+async function autoLogin(phone) {
+    try {
+        const res = await fetch('/api/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phone })
+        });
+        const data = await res.json();
+        if (data.ok) {
+            currentUser = data.user;
+            applyUserData(data.user);
+            showMainMenu();
+        }
+    } catch(e) {}
+}
+
+if (loginBtn) {
+    loginBtn.addEventListener('click', async () => {
+        const phone = loginPhone?.value?.trim();
+        if (!phone || !/^1\d{10}$/.test(phone)) {
+            if (loginError) loginError.textContent = '请输入11位手机号';
+            return;
+        }
+        loginBtn.disabled = true;
+        loginBtn.querySelector('span').textContent = '登录中...';
+        try {
+            const res = await fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phone })
+            });
+            const data = await res.json();
+            if (data.ok) {
+                currentUser = data.user;
+                localStorage.setItem('neon_phone', phone);
+                applyUserData(data.user);
+                showMainMenu();
+            } else {
+                if (loginError) loginError.textContent = data.error || '登录失败';
+            }
+        } catch(e) {
+            if (loginError) loginError.textContent = '网络错误，请重试';
+        }
+        loginBtn.disabled = false;
+        loginBtn.querySelector('span').textContent = '🚀 进入游戏';
+    });
+}
+
+// Enter 键登录
+if (loginPhone) {
+    loginPhone.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') loginBtn?.click();
+    });
+}
+
+function showMainMenu() {
+    if (loginScreen) { loginScreen.classList.remove('active'); loginScreen.classList.add('hidden'); }
+    mainMenu.classList.remove('hidden'); mainMenu.classList.add('active');
+}
+
+function applyUserData(user) {
+    if (!user) return;
+    // 应用云端金币和升级数据
+    metaProg.gold = user.gold || 0;
+    if (user.upgrades) {
+        for (const [key, level] of Object.entries(user.upgrades)) {
+            metaProg.upgrades[key] = level;
+        }
+    }
+    metaProg.save();
+    updateGoldDisplay();
+}
+
+// 保存数据到云端
+async function syncToCloud() {
+    if (!currentUser?.phone) return;
+    try {
+        await fetch('/api/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                phone: currentUser.phone,
+                gold: metaProg.gold,
+                upgrades: metaProg.upgrades,
+                stats: { totalKills: killCount, bestTime: surviveTime, gamesPlayed: (currentUser.stats?.gamesPlayed || 0) + 1 }
+            })
+        });
+    } catch(e) {}
+}
+
 // Game State
 let gameState = 'MENU';
 let lastTime = performance.now();
@@ -1664,6 +1770,7 @@ function triggerGameOver() {
   // Gold reward
   const goldEarned = metaProg.calculateRunGold(killCount, surviveTime, bossKillsThisRun, maxComboThisRun);
   metaProg.addGold(goldEarned);
+  syncToCloud(); // 同步到云端
 
   // Show gold in game over screen
   let goldEl = document.getElementById('final-gold');
@@ -1799,7 +1906,7 @@ function renderMetaUpgrades() {
             '<div class="meta-card-cost">' + (maxed ? '已满' : '<svg viewBox="0 0 24 24" width="14" height="14" style="vertical-align:middle"><circle cx="12" cy="12" r="9" fill="#ffcc00"/><text x="12" y="16" text-anchor="middle" font-size="12" fill="#996600" font-weight="bold">$</text></svg>' + cost) + '</div>';
 
         if (canBuy) {
-            card.onclick = () => { metaProg.purchase(id); renderMetaUpgrades(); };
+            card.onclick = () => { metaProg.purchase(id); renderMetaUpgrades(); syncToCloud(); };
         }
         container.appendChild(card);
     }
